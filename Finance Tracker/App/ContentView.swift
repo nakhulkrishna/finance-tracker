@@ -27,30 +27,38 @@ enum AppTab: String, CaseIterable, Identifiable {
 
 struct ContentView: View {
     @State private var selectedTab: AppTab = .home
+    @State private var isAuthenticated = false
 
     var body: some View {
         ZStack {
             AppBackground()
 
-            Group {
-                switch selectedTab {
-                case .home:
-                    HomeDashboardScreen()
-                case .insights:
-                    InsightsScreen()
-                case .invest:
-                    InvestmentsScreen()
-                case .wallet:
-                    WalletScreen()
-                case .more:
-                    MoreSettingsScreen()
+            if isAuthenticated {
+                Group {
+                    switch selectedTab {
+                    case .home:
+                        HomeDashboardScreen()
+                    case .insights:
+                        InsightsScreen()
+                    case .invest:
+                        InvestmentsScreen()
+                    case .wallet:
+                        WalletScreen()
+                    case .more:
+                        MoreSettingsScreen()
+                    }
                 }
+            } else {
+                AuthenticationFlowScreen(isAuthenticated: $isAuthenticated)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            AppTabBar(selectedTab: $selectedTab)
+            if isAuthenticated {
+                AppTabBar(selectedTab: $selectedTab)
+            }
         }
         .animation(.smooth(duration: 0.30), value: selectedTab)
+        .animation(.smooth(duration: 0.35), value: isAuthenticated)
     }
 }
 
