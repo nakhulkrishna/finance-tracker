@@ -153,11 +153,11 @@ struct InsightsScreen: View {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Spending Categories")
-                        .font(.system(size: 21, weight: .semibold, design: .rounded))
+                        .font(.system(size: 19, weight: .semibold, design: .rounded))
                         .foregroundStyle(FinancePalette.textPrimary)
 
                     Text("Clear breakdown of where your money went")
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(FinancePalette.textSecondary)
                         .lineLimit(1)
                 }
@@ -261,19 +261,6 @@ struct InsightsNotificationsScreen: View {
             )
         }
 
-        if notifications.isEmpty, financeStore.availableBalance > 0 || financeStore.openingBalance > 0 {
-            notifications.append(
-                InsightNotification(
-                    title: "Your account is ready",
-                    subtitle: "Start adding payments, wallet activity, or investments to generate insights here.",
-                    detail: "This inbox stays dynamic and updates from your real finance activity only.",
-                    createdAt: now,
-                    badge: "Ready",
-                    kind: .reminder
-                )
-            )
-        }
-
         return notifications.sorted { $0.createdAt > $1.createdAt }
     }
 
@@ -321,7 +308,7 @@ struct InsightsNotificationsScreen: View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Notifications")
-                    .font(.system(size: 21, weight: .bold, design: .rounded))
+                    .font(.system(size: 19, weight: .bold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
 
                 Text("Local insights only, no FCM or push service")
@@ -360,7 +347,7 @@ struct InsightsNotificationsScreen: View {
                         .foregroundStyle(.white.opacity(0.76))
 
                     Text("\(unreadCount) unread")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .contentTransition(.numericText())
 
@@ -701,12 +688,12 @@ private struct InsightBarColumn: View {
 
             VStack(spacing: 4) {
                 Text(bar.title)
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
                     .lineLimit(1)
 
                 Text(bar.amount)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
                     .foregroundStyle(FinancePalette.textSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -787,12 +774,12 @@ private struct InsightCategoryCard: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(category.title)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
                     .lineLimit(1)
 
                 Text(category.caption)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(FinancePalette.textSecondary)
                     .lineLimit(1)
             }
@@ -801,13 +788,14 @@ private struct InsightCategoryCard: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(category.amount)
-                    .font(.system(size: 25, weight: .bold, design: .rounded))
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.82)
                     .contentTransition(.numericText())
 
                 Text(category.footnote)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(FinancePalette.textSecondary)
                     .lineLimit(1)
             }

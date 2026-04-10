@@ -233,6 +233,7 @@ struct ContentView: View {
     }
 }
 
+#if DEBUG
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
@@ -242,6 +243,7 @@ struct ContentView_Previews: PreviewProvider {
             .preferredColorScheme(.light)
     }
 }
+#endif
 
 private struct SessionLoadingScreen: View {
     var body: some View {

@@ -1,6 +1,11 @@
 import StoreKit
 import SwiftUI
 
+private enum AppExternalLinks {
+    static let privacyPolicy = URL(string: "https://nakhulkrishna.github.io/finance-tracker/privacy.html")!
+    static let deleteAccount = URL(string: "https://nakhulkrishna.github.io/finance-tracker/delete-account.html")!
+}
+
 struct MoreSettingsScreen: View {
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var authStore: AuthStore
@@ -236,12 +241,15 @@ struct MoreSettingsScreen: View {
                 Text(authStore.currentUser?.fullName ?? "Finance User")
                     .font(.system(size: 28, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.78)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Text(authStore.currentUser?.email ?? "Personal finance dashboard owner")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundStyle(.white.opacity(0.76))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.78)
             }
 
             HStack(spacing: 8) {
@@ -1265,6 +1273,8 @@ private struct CustomCategoriesScreen: View {
 }
 
 private struct PrivacyPolicyScreen: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         ProfileSubscreenScaffold(
             title: "Privacy Policy",
@@ -1317,6 +1327,87 @@ private struct PrivacyPolicyScreen: View {
                         subtitle: "Finance Tracker uses manual expense and wallet logging on iPhone.",
                         color: FinancePalette.iceBlue
                     )
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 14) {
+                SettingsSectionTitle(
+                    title: "Public URLs",
+                    subtitle: "Open the hosted privacy and account deletion pages from inside the app"
+                )
+
+                SettingsCard {
+                    SettingsInfoRow(
+                        icon: "link.circle.fill",
+                        title: "Privacy Policy URL",
+                        subtitle: "Public page for App Store Connect and user access",
+                        value: "Online",
+                        color: FinancePalette.royalBlue
+                    )
+
+                    SettingsRowDivider()
+
+                    SettingsInfoRow(
+                        icon: "trash.circle.fill",
+                        title: "Delete Account URL",
+                        subtitle: "Public deletion request page for App Store requirements",
+                        value: "Online",
+                        color: FinancePalette.oceanBlue
+                    )
+                }
+
+                VStack(spacing: 12) {
+                    Link(destination: AppExternalLinks.privacyPolicy) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "safari.fill")
+                                .font(.system(size: 15, weight: .bold))
+
+                            Text("Open Hosted Privacy Policy")
+                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                        }
+                        .foregroundStyle(FinancePalette.royalBlue)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(FinancePalette.softBlueBackground(for: colorScheme))
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .stroke(FinancePalette.royalBlue.opacity(0.14), lineWidth: 1)
+                        )
+                    }
+
+                    Link(destination: AppExternalLinks.deleteAccount) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "trash.fill")
+                                .font(.system(size: 15, weight: .bold))
+
+                            Text("Open Hosted Delete Account Page")
+                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                        }
+                        .foregroundStyle(FinancePalette.oceanBlue)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(FinancePalette.softBlueBackground(for: colorScheme))
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .stroke(FinancePalette.oceanBlue.opacity(0.14), lineWidth: 1)
+                        )
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(AppExternalLinks.privacyPolicy.absoluteString)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(FinancePalette.textSecondary)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(AppExternalLinks.deleteAccount.absoluteString)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(FinancePalette.textSecondary)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
@@ -1967,11 +2058,15 @@ private struct SettingsHeroPanel<Content: View>: View {
                     Text(title)
                         .font(.system(size: 26, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.78)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     Text(subtitle)
                         .font(.system(size: 13, weight: .medium, design: .rounded))
                         .foregroundStyle(.white.opacity(0.78))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
                 }
 
                 Spacer(minLength: 8)

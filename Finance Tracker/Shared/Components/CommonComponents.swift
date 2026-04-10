@@ -40,12 +40,16 @@ struct DashboardHeader: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.76)
 
                 Text(subtitle)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(FinancePalette.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
 
             Spacer()
@@ -98,10 +102,10 @@ struct PrimaryActionButton: View {
                 Spacer(minLength: 0)
 
                 Text(title)
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
 
                 Image(systemName: symbol)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 12, weight: .bold))
 
                 Spacer(minLength: 0)
             }
@@ -135,7 +139,7 @@ struct HomeSheetMiniStat: View {
                 .foregroundStyle(.white.opacity(0.74))
 
             Text(value)
-                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -174,18 +178,18 @@ struct HomeSheetField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .foregroundStyle(FinancePalette.textSecondary)
 
             HStack(spacing: 8) {
                 if let prefix {
                     Text(prefix)
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
                         .foregroundStyle(FinancePalette.royalBlue)
                 }
 
                 TextField(placeholder, text: $text)
-                    .font(.system(size: prefix == nil ? 16 : 24, weight: .bold, design: .rounded))
+                    .font(.system(size: prefix == nil ? 15 : 22, weight: .bold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
                     .keyboardType(prefix == nil ? .default : .numberPad)
             }
@@ -212,7 +216,7 @@ struct HomeSheetDateField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .foregroundStyle(FinancePalette.textSecondary)
 
             HStack(spacing: 12) {
@@ -262,7 +266,7 @@ struct HomeActionTagChip: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .font(.system(size: 12, weight: .bold, design: .rounded))
                 .foregroundStyle(isSelected ? .white : accentColor)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
@@ -302,12 +306,12 @@ struct SettingsInfoRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
                     .lineLimit(1)
 
                 Text(subtitle)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(FinancePalette.textSecondary)
                     .lineLimit(1)
             }
@@ -315,7 +319,7 @@ struct SettingsInfoRow: View {
             Spacer(minLength: 10)
 
             Text(value)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .font(.system(size: 11, weight: .bold, design: .rounded))
                 .foregroundStyle(color)
                 .multilineTextAlignment(.trailing)
                 .lineLimit(2)
@@ -359,12 +363,12 @@ struct SettingsSelectionCard: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(title)
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .foregroundStyle(FinancePalette.textPrimary)
                         .lineLimit(1)
 
                     Text(subtitle)
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
                         .foregroundStyle(FinancePalette.textSecondary)
                         .multilineTextAlignment(.leading)
                 }
@@ -398,11 +402,11 @@ struct SettingsFeatureCard: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
 
                 Text(subtitle)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(FinancePalette.textSecondary)
             }
 
@@ -428,11 +432,11 @@ struct SettingsSectionTitle: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 21, weight: .semibold, design: .rounded))
+                .font(.system(size: 19, weight: .semibold, design: .rounded))
                 .foregroundStyle(FinancePalette.textPrimary)
 
             Text(subtitle)
-                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundStyle(FinancePalette.textSecondary)
                 .lineLimit(1)
         }
@@ -491,12 +495,12 @@ struct SettingsNavigationRow: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundStyle(FinancePalette.textPrimary)
                         .lineLimit(1)
 
                     Text(subtitle)
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
                         .foregroundStyle(FinancePalette.textSecondary)
                         .lineLimit(1)
                 }
@@ -504,7 +508,7 @@ struct SettingsNavigationRow: View {
                 Spacer(minLength: 10)
 
                 Text(value)
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(color)
                     .lineLimit(1)
 
@@ -531,12 +535,12 @@ struct SettingsToggleRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
                     .lineLimit(1)
 
                 Text(subtitle)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(FinancePalette.textSecondary)
                     .lineLimit(1)
             }
@@ -579,13 +583,13 @@ struct TransactionRow: View {
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(transaction.title)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
                     .lineLimit(1)
                     .truncationMode(.tail)
 
                 Text(transaction.subtitle)
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
                     .foregroundStyle(FinancePalette.textSecondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -596,18 +600,18 @@ struct TransactionRow: View {
 
             VStack(alignment: .trailing, spacing: 4) {
                 Text(transaction.amount)
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.72)
+                    .minimumScaleFactor(0.68)
                     .fixedSize(horizontal: true, vertical: false)
 
                 Text(transaction.status)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
                     .foregroundStyle(FinancePalette.royalBlue)
                     .lineLimit(1)
             }
-            .frame(minWidth: 96, alignment: .trailing)
+            .frame(minWidth: 88, alignment: .trailing)
 
             if let onDelete {
                 Menu {
@@ -652,7 +656,7 @@ struct BrandBadge: View {
             .frame(width: 50, height: 50)
             .overlay {
                 Text(transaction.badgeText)
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
             }
             .shadow(color: transaction.brandColor.opacity(0.22), radius: 10, y: 7)

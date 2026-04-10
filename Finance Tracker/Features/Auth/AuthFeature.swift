@@ -92,7 +92,7 @@ struct AuthenticationFlowScreen: View {
     private var authHero: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 12) {
-                Image("Gemini_Generated_Image_yzd5hgyzd5hgyzd5")
+                Image("ChatGPT Image Apr 10, 2026 at 11_08_54 AM")
                     .resizable()
                     .scaledToFill()
                     .frame(width: 56, height: 56)
@@ -610,6 +610,7 @@ private struct AuthSecureInputField: View {
     }
 }
 
+#if DEBUG
 struct AuthenticationFlowScreen_Previews: PreviewProvider {
     static var previews: some View {
         ZStack {
@@ -620,6 +621,7 @@ struct AuthenticationFlowScreen_Previews: PreviewProvider {
         .preferredColorScheme(.light)
     }
 }
+#endif
 
 private extension View {
     func authEntrance(isVisible: Bool, delay: Double, offset: CGFloat, scale: CGFloat) -> some View {

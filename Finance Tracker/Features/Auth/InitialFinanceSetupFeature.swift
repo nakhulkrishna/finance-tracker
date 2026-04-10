@@ -151,7 +151,7 @@ struct InitialFinanceSetupFlowScreen: View {
 
     private var topHeader: some View {
         HStack(spacing: 14) {
-            Image("Gemini_Generated_Image_yzd5hgyzd5hgyzd5")
+            Image("ChatGPT Image Apr 10, 2026 at 11_08_54 AM")
                 .resizable()
                 .scaledToFill()
                 .frame(width: 56, height: 56)

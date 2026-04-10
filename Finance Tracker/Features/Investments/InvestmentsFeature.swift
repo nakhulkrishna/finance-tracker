@@ -83,9 +83,9 @@ struct InvestmentsScreen: View {
                         .foregroundStyle(.white.opacity(0.78))
 
                     Text(totalCurrentValue.currencyText)
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
-                        .minimumScaleFactor(0.78)
+                        .minimumScaleFactor(0.72)
                         .contentTransition(.numericText())
 
                     Text(holdings.isEmpty ? "Start tracking money outside your bank" : "Not counted in expenses")
@@ -186,7 +186,7 @@ struct InvestmentsScreen: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("Portfolio")
-                    .font(.system(size: 21, weight: .semibold, design: .rounded))
+                    .font(.system(size: 19, weight: .semibold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
 
                 Spacer()

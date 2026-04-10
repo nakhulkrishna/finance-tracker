@@ -149,7 +149,7 @@ struct HomeDashboardScreen: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
                     Text("Available on card")
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(.white.opacity(0.86))
 
                     Spacer()
@@ -182,9 +182,9 @@ struct HomeDashboardScreen: View {
                 }
 
                 Text(animatedAvailableBalance.currencyText)
-                    .font(.system(size: 37, weight: .bold, design: .rounded))
+                    .font(.system(size: 33, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
-                    .minimumScaleFactor(0.8)
+                    .minimumScaleFactor(0.72)
                     .contentTransition(.numericText())
                     .scaleEffect(isBalancePulsing ? 1.018 : 1, anchor: .leading)
                     .animation(.spring(response: 0.42, dampingFraction: 0.84), value: isBalancePulsing)
@@ -193,11 +193,11 @@ struct HomeDashboardScreen: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Transfer Limit")
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
                                 .foregroundStyle(.white.opacity(0.72))
 
                             Text(financeStore.transferLimitDisplayText)
-                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
                                 .foregroundStyle(.white)
                                 .contentTransition(.numericText())
                         }
@@ -206,18 +206,18 @@ struct HomeDashboardScreen: View {
 
                         VStack(alignment: .trailing, spacing: 4) {
                             Text("Spent Today")
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
                                 .foregroundStyle(.white.opacity(0.72))
 
                             Text(financeStore.todaySpend.currencyText)
-                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
                                 .foregroundStyle(.white)
                                 .contentTransition(.numericText())
                         }
                     }
 
                     Text("\(financeStore.todayTransactionCount) entries today")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
                         .foregroundStyle(.white.opacity(0.76))
                         .contentTransition(.numericText())
                 }
@@ -1174,7 +1174,7 @@ private struct CardSettingsActionCard: View {
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(title)
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundStyle(FinancePalette.textPrimary)
 
                     Text(subtitle)
@@ -1183,7 +1183,7 @@ private struct CardSettingsActionCard: View {
                         .fixedSize(horizontal: false, vertical: true)
 
                     Text(value)
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundStyle(tint)
                         .contentTransition(.numericText())
                 }
@@ -1294,7 +1294,7 @@ private struct ViewAllTransactionsScreen: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("All Transactions")
-                    .font(.system(size: 21, weight: .bold, design: .rounded))
+                    .font(.system(size: 19, weight: .bold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
 
                 Text("Complete activity from your home dashboard")
@@ -1318,7 +1318,7 @@ private struct ViewAllTransactionsScreen: View {
                         .foregroundStyle(.white.opacity(0.76))
 
                     Text("\(transactionCount)")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .contentTransition(.numericText())
                 }
@@ -1461,11 +1461,11 @@ private struct EmptyOperationsCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .font(.system(size: 16, weight: .semibold, design: .rounded))
                 .foregroundStyle(FinancePalette.textPrimary)
 
             Text(subtitle)
-                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundStyle(FinancePalette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -1564,15 +1564,17 @@ private struct PremiumWidgetCard: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundStyle(isHighlighted ? .white.opacity(0.82) : FinancePalette.textSecondary)
 
                 Text(value)
-                    .font(.system(size: 21, weight: .bold, design: .rounded))
+                    .font(.system(size: 19, weight: .bold, design: .rounded))
                     .foregroundStyle(isHighlighted ? .white : FinancePalette.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
 
                 Text(subtitle)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(isHighlighted ? .white.opacity(0.72) : FinancePalette.royalBlue)
             }
         }
