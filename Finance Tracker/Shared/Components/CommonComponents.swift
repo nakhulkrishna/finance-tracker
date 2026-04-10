@@ -1,17 +1,20 @@
 import SwiftUI
 
 struct DashboardHeader: View {
+    let avatarText: String
     let title: String
     let subtitle: String
     let settingsAction: () -> Void
     let notificationAction: () -> Void
 
     init(
+        avatarText: String = "FT",
         title: String,
         subtitle: String,
         settingsAction: @escaping () -> Void = {},
         notificationAction: @escaping () -> Void = {}
     ) {
+        self.avatarText = avatarText
         self.title = title
         self.subtitle = subtitle
         self.settingsAction = settingsAction
@@ -30,7 +33,7 @@ struct DashboardHeader: View {
                 )
                 .frame(width: 48, height: 48)
                 .overlay {
-                    Text("NK")
+                    Text(avatarText)
                         .font(.system(size: 14, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                 }
@@ -54,6 +57,7 @@ struct DashboardHeader: View {
 }
 
 struct HeaderIconButton: View {
+    @Environment(\.colorScheme) private var colorScheme
     let symbol: String
     let action: () -> Void
 
@@ -68,13 +72,13 @@ struct HeaderIconButton: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(FinancePalette.royalBlue)
                 .frame(width: 40, height: 40)
-                .background(Color.white)
+                .background(FinancePalette.cardBackground(for: colorScheme))
                 .clipShape(Circle())
                 .overlay(
                     Circle()
-                        .stroke(FinancePalette.icyBlue, lineWidth: 1)
+                        .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
                 )
-                .shadow(color: FinancePalette.cardShadow, radius: 10, y: 8)
+                .shadow(color: FinancePalette.shadow(for: colorScheme), radius: 10, y: 8)
         }
         .buttonStyle(.plain)
     }
@@ -149,9 +153,23 @@ struct HomeSheetMiniStat: View {
 }
 
 struct HomeSheetField: View {
+    @Environment(\.colorScheme) private var colorScheme
     let title: String
     let prefix: String?
+    let placeholder: String
     @Binding var text: String
+
+    init(
+        title: String,
+        prefix: String? = nil,
+        placeholder: String = "",
+        text: Binding<String>
+    ) {
+        self.title = title
+        self.prefix = prefix
+        self.placeholder = placeholder
+        self._text = text
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -166,32 +184,76 @@ struct HomeSheetField: View {
                         .foregroundStyle(FinancePalette.royalBlue)
                 }
 
-                TextField("", text: $text)
+                TextField(placeholder, text: $text)
                     .font(.system(size: prefix == nil ? 16 : 24, weight: .bold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
+                    .keyboardType(prefix == nil ? .default : .numberPad)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 16)
             .background(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white, FinancePalette.mistBlue],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(FinancePalette.fieldBackground(for: colorScheme))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(FinancePalette.icyBlue.opacity(0.96), lineWidth: 1)
+                    .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
             )
-            .shadow(color: FinancePalette.cardShadow.opacity(0.34), radius: 12, y: 8)
+            .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.34), radius: 12, y: 8)
+        }
+    }
+}
+
+struct HomeSheetDateField: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let title: String
+    @Binding var date: Date
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(FinancePalette.textSecondary)
+
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(FinancePalette.softBlueBackground(for: colorScheme))
+                        .frame(width: 40, height: 40)
+
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(FinancePalette.royalBlue)
+                }
+
+                DatePicker(
+                    "",
+                    selection: $date,
+                    in: ...Date(),
+                    displayedComponents: [.date, .hourAndMinute]
+                )
+                .labelsHidden()
+                .datePickerStyle(.compact)
+                .tint(FinancePalette.royalBlue)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(FinancePalette.fieldBackground(for: colorScheme))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
+            )
+            .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.34), radius: 12, y: 8)
         }
     }
 }
 
 struct HomeActionTagChip: View {
+    @Environment(\.colorScheme) private var colorScheme
     let title: String
     let isSelected: Bool
     let accentColor: Color
@@ -213,14 +275,14 @@ struct HomeActionTagChip: View {
                                 endPoint: .trailing
                             )
                         } else {
-                            Color.white
+                            FinancePalette.cardBackground(for: colorScheme)
                         }
                     }
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(isSelected ? Color.clear : FinancePalette.icyBlue, lineWidth: 1)
+                        .stroke(isSelected ? Color.clear : FinancePalette.border(for: colorScheme), lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
@@ -263,6 +325,7 @@ struct SettingsInfoRow: View {
 }
 
 struct SettingsSelectionCard: View {
+    @Environment(\.colorScheme) private var colorScheme
     let icon: String
     let title: String
     let subtitle: String
@@ -310,25 +373,20 @@ struct SettingsSelectionCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white, FinancePalette.mistBlue],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(FinancePalette.elevatedBackground(for: colorScheme))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(isSelected ? color : FinancePalette.icyBlue.opacity(0.95), lineWidth: isSelected ? 1.5 : 1)
+                    .stroke(isSelected ? color : FinancePalette.border(for: colorScheme), lineWidth: isSelected ? 1.5 : 1)
             )
-            .shadow(color: FinancePalette.cardShadow.opacity(0.34), radius: 12, y: 8)
+            .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.34), radius: 12, y: 8)
         }
         .buttonStyle(.plain)
     }
 }
 
 struct SettingsFeatureCard: View {
+    @Environment(\.colorScheme) private var colorScheme
     let icon: String
     let title: String
     let subtitle: String
@@ -353,19 +411,13 @@ struct SettingsFeatureCard: View {
         .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.white, FinancePalette.mistBlue],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .fill(FinancePalette.elevatedBackground(for: colorScheme))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(FinancePalette.icyBlue.opacity(0.95), lineWidth: 1)
+                .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
         )
-        .shadow(color: FinancePalette.cardShadow.opacity(0.34), radius: 12, y: 8)
+        .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.34), radius: 12, y: 8)
     }
 }
 
@@ -388,6 +440,7 @@ struct SettingsSectionTitle: View {
 }
 
 struct SettingsCard<Content: View>: View {
+    @Environment(\.colorScheme) private var colorScheme
     @ViewBuilder let content: Content
 
     init(@ViewBuilder content: () -> Content) {
@@ -402,26 +455,22 @@ struct SettingsCard<Content: View>: View {
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.white, FinancePalette.mistBlue],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .fill(FinancePalette.elevatedBackground(for: colorScheme))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(FinancePalette.icyBlue.opacity(0.96), lineWidth: 1)
+                .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
         )
-        .shadow(color: FinancePalette.cardShadow.opacity(0.42), radius: 16, y: 12)
+        .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.42), radius: 16, y: 12)
     }
 }
 
 struct SettingsRowDivider: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         Rectangle()
-            .fill(FinancePalette.icyBlue.opacity(0.85))
+            .fill(FinancePalette.border(for: colorScheme))
             .frame(height: 1)
             .padding(.leading, 62)
     }
@@ -520,21 +569,28 @@ struct SettingsIconBadge: View {
 }
 
 struct TransactionRow: View {
+    @Environment(\.colorScheme) private var colorScheme
     let transaction: Transaction
+    var onDelete: (() -> Void)? = nil
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(alignment: .top, spacing: 14) {
             BrandBadge(transaction: transaction)
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(transaction.title)
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
 
                 Text(transaction.subtitle)
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundStyle(FinancePalette.textSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
+            .layoutPriority(1)
 
             Spacer()
 
@@ -542,23 +598,42 @@ struct TransactionRow: View {
                 Text(transaction.amount)
                     .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                    .fixedSize(horizontal: true, vertical: false)
 
                 Text(transaction.status)
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundStyle(FinancePalette.royalBlue)
+                    .lineLimit(1)
+            }
+            .frame(minWidth: 96, alignment: .trailing)
+
+            if let onDelete {
+                Menu {
+                    Button(role: .destructive, action: onDelete) {
+                        Label("Delete", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(FinancePalette.textSecondary)
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 15)
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Color.white)
+                .fill(FinancePalette.cardBackground(for: colorScheme))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(FinancePalette.icyBlue.opacity(0.85), lineWidth: 1)
+                .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
         )
-        .shadow(color: FinancePalette.cardShadow, radius: 16, y: 10)
+        .shadow(color: FinancePalette.shadow(for: colorScheme), radius: 16, y: 10)
     }
 }
 

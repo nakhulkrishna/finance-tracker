@@ -1,11 +1,43 @@
+import LocalAuthentication
 import SwiftUI
 
 struct WalletScreen: View {
-    private let entries = WalletEntry.sampleData
-    private let historySections = WalletActivitySection.sampleData
+    @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject private var authStore: AuthStore
+    @EnvironmentObject private var financeStore: FinanceStore
+
     private let actionColumns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
+
     @State private var activeRoute: WalletRoute?
     @State private var isShowingNotifications = false
+    @State private var isBalanceUnlocked = false
+    @State private var isUnlockingBalance = false
+    @State private var balanceSecurityMessage: String?
+    @State private var unlockMethod: DeviceAuthenticationMethod = .faceID
+
+    private var recentEntries: [WalletEntry] {
+        financeStore.recentWalletEntries
+    }
+
+    private var historySections: [WalletActivitySection] {
+        financeStore.walletSections
+    }
+
+    private var displayedBalanceText: String {
+        requiresBalanceUnlock && !isBalanceUnlocked ? "••••••" : financeStore.walletBalanceText
+    }
+
+    private var requiresBalanceUnlock: Bool {
+        authStore.profilePreferences.biometricLock
+    }
+
+    private var shouldConcealWalletAmounts: Bool {
+        requiresBalanceUnlock && !isBalanceUnlocked
+    }
+
+    private func concealedAmount(_ value: String) -> String {
+        shouldConcealWalletAmounts ? "••••••" : value
+    }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -17,6 +49,7 @@ struct WalletScreen: View {
                         isShowingNotifications = true
                     }
                 )
+
                 walletCard
                 quickActionsSection
                 activitySection
@@ -30,16 +63,21 @@ struct WalletScreen: View {
             switch route {
             case .addMoney:
                 WalletActionSheet(action: .addMoney)
+                    .environmentObject(financeStore)
                     .presentationDetents([.height(560), .large])
                     .presentationDragIndicator(.visible)
             case .withdraw:
                 WalletActionSheet(action: .withdraw)
+                    .environmentObject(financeStore)
                     .presentationDetents([.height(560), .large])
                     .presentationDragIndicator(.visible)
             case .history:
-                WalletActivityScreen(sections: historySections)
-                    .presentationDetents([.large])
-                    .presentationDragIndicator(.hidden)
+                WalletActivityScreen(
+                    sections: historySections,
+                    currentBalance: financeStore.walletBalance
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.hidden)
             }
         }
         .sheet(isPresented: $isShowingNotifications) {
@@ -47,64 +85,109 @@ struct WalletScreen: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.hidden)
         }
+        .onAppear {
+            unlockMethod = DeviceAuthenticationMethod.availableMethod()
+            isBalanceUnlocked = !requiresBalanceUnlock
+        }
+        .onChange(of: authStore.profilePreferences.biometricLock) { _, isEnabled in
+            withAnimation(.smooth(duration: 0.25)) {
+                isBalanceUnlocked = !isEnabled
+            }
+        }
     }
 
     private var walletCard: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 10) {
                     Text("Liquid Wallet")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white.opacity(0.82))
 
-                    Text("₹24,850.00")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .contentTransition(.numericText())
+                    HStack(spacing: 10) {
+                        Text(displayedBalanceText)
+                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .contentTransition(.numericText())
+
+                        if requiresBalanceUnlock {
+                            Button(action: {
+                                if isBalanceUnlocked {
+                                    withAnimation(.smooth(duration: 0.25)) {
+                                        isBalanceUnlocked = false
+                                    }
+                                } else {
+                                    unlockBalance()
+                                }
+                            }) {
+                                Image(systemName: isBalanceUnlocked ? "eye.fill" : unlockMethod.symbol)
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 32, height: 32)
+                                    .background(Color.white.opacity(0.12))
+                                    .clipShape(Circle())
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(isUnlockingBalance)
+                        }
+                    }
+
+                    Text(balanceSupportingText)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.76))
                 }
 
                 Spacer(minLength: 12)
 
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 12, weight: .bold))
+                Text(requiresBalanceUnlock && !isBalanceUnlocked ? "Locked" : "Available")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(FinancePalette.navyBlue)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.white.opacity(0.94))
+                    .clipShape(Capsule())
+            }
 
-                    Text("Available")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                }
-                .foregroundStyle(FinancePalette.navyBlue)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.white.opacity(0.94))
-                .clipShape(Capsule())
+            if let balanceSecurityMessage {
+                Text(balanceSecurityMessage)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.82))
+                    .lineLimit(2)
             }
 
             HStack(spacing: 12) {
-                WalletMetricPill(title: "Cash In Hand", value: "₹18,500")
-                WalletMetricPill(title: "Safe Reserve", value: "₹6,350")
+                WalletMetricPill(title: "Money In", value: concealedAmount(financeStore.walletMonthlyIn.currencyText))
+                WalletMetricPill(title: "Money Out", value: concealedAmount(financeStore.walletMonthlyOut.currencyText))
             }
 
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Card access")
+                    Text("Cash entries")
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white.opacity(0.74))
 
-                    Text("•••• 2485")
+                    Text("\(financeStore.walletEntryCount)")
                         .font(.system(size: 19, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white)
                 }
 
                 Spacer()
 
-                VStack(alignment: .trailing, spacing: 6) {
-                    Text("Last sync")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.74))
+                if authStore.profilePreferences.showWalletSyncStatus {
+                    VStack(alignment: .trailing, spacing: 6) {
+                        Text("Last update")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.74))
 
-                    Text("Today 01:40 PM")
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
+                        Text(financeStore.walletLastUpdatedText)
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                    }
                 }
             }
         }
@@ -140,6 +223,18 @@ struct WalletScreen: View {
         .shadow(color: FinancePalette.royalBlue.opacity(0.22), radius: 22, y: 16)
     }
 
+    private var balanceSupportingText: String {
+        guard requiresBalanceUnlock else {
+            return "Ready to use"
+        }
+
+        if isUnlockingBalance {
+            return "Checking \(unlockMethod.title)..."
+        }
+
+        return isBalanceUnlocked ? "Unlocked for this session" : "Tap to unlock with \(unlockMethod.title)"
+    }
+
     private var quickActionsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Quick Cash Actions")
@@ -153,7 +248,7 @@ struct WalletScreen: View {
                     WalletActionCard(
                         title: "Add Money",
                         subtitle: "Log liquid cash added",
-                        amount: "+₹1,500",
+                        amount: concealedAmount(financeStore.walletMonthlyIn.signedCurrencyText),
                         icon: "arrow.down.circle.fill",
                         color: FinancePalette.royalBlue
                     )
@@ -166,7 +261,7 @@ struct WalletScreen: View {
                     WalletActionCard(
                         title: "Withdraw",
                         subtitle: "Record money taken out",
-                        amount: "-₹500",
+                        amount: concealedAmount((-financeStore.walletMonthlyOut).signedCurrencyText),
                         icon: "arrow.up.circle.fill",
                         color: FinancePalette.sapphireBlue
                     )
@@ -193,17 +288,54 @@ struct WalletScreen: View {
                         .foregroundStyle(FinancePalette.royalBlue)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(FinancePalette.paleBlue)
+                        .background(FinancePalette.softBlueBackground(for: colorScheme))
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }
 
             VStack(spacing: 12) {
-                ForEach(entries) { entry in
-                    WalletEntryRow(entry: entry)
+                if recentEntries.isEmpty {
+                    EmptyWalletEntriesCard()
+                } else {
+                    ForEach(recentEntries) { entry in
+                        WalletEntryRow(entry: entry, showsAmount: !shouldConcealWalletAmounts)
+                    }
                 }
             }
+        }
+        .opacity(authStore.profilePreferences.showWalletActivityPreview ? 1 : 0)
+        .frame(height: authStore.profilePreferences.showWalletActivityPreview ? nil : 0)
+        .clipped()
+    }
+
+    private func unlockBalance() {
+        guard !isUnlockingBalance else { return }
+
+        balanceSecurityMessage = nil
+        unlockMethod = DeviceAuthenticationMethod.availableMethod()
+
+        Task {
+            isUnlockingBalance = true
+            let result = await DeviceAuthenticator.authenticate(
+                reason: "Reveal your liquid wallet balance."
+            )
+
+            switch result {
+            case let .success(method):
+                unlockMethod = method
+                withAnimation(.smooth(duration: 0.25)) {
+                    isBalanceUnlocked = true
+                    balanceSecurityMessage = nil
+                }
+            case let .failure(message):
+                balanceSecurityMessage = message
+                withAnimation(.smooth(duration: 0.25)) {
+                    isBalanceUnlocked = false
+                }
+            }
+
+            isUnlockingBalance = false
         }
     }
 }
@@ -283,21 +415,21 @@ private enum WalletQuickAction {
         }
     }
 
-    var sourceDefault: String {
+    var sourcePlaceholder: String {
         switch self {
         case .addMoney:
-            return "Bank Transfer"
+            return "Bank / Salary / Cash"
         case .withdraw:
-            return "Daily Expenses"
+            return "Groceries / ATM / Travel"
         }
     }
 
-    var noteDefault: String {
+    var notePlaceholder: String {
         switch self {
         case .addMoney:
-            return "Added for monthly cash use"
+            return "Optional note about this money"
         case .withdraw:
-            return "Cash taken for groceries"
+            return "Optional reason for this cash out"
         }
     }
 
@@ -330,20 +462,45 @@ private enum WalletQuickAction {
 }
 
 private struct WalletActionSheet: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var authStore: AuthStore
+    @EnvironmentObject private var financeStore: FinanceStore
+    @EnvironmentObject private var premiumStore: PremiumStore
 
     let action: WalletQuickAction
+
     @State private var amount: String
     @State private var source: String
     @State private var note: String
     @State private var selectedTag: String
+    @State private var selectedDate: Date
+    @State private var errorMessage: String?
 
     init(action: WalletQuickAction) {
         self.action = action
-        _amount = State(initialValue: action.amountPlaceholder)
-        _source = State(initialValue: action.sourceDefault)
-        _note = State(initialValue: action.noteDefault)
+        _amount = State(initialValue: "")
+        _source = State(initialValue: "")
+        _note = State(initialValue: "")
         _selectedTag = State(initialValue: action.tags.first ?? "")
+        _selectedDate = State(initialValue: .now)
+    }
+
+    private var availableTags: [String] {
+        let customTags: [String]
+
+        switch action {
+        case .addMoney:
+            customTags = premiumStore.hasAccess(to: .customCategories)
+                ? authStore.profilePreferences.walletAddCategories
+                : []
+        case .withdraw:
+            customTags = premiumStore.hasAccess(to: .customCategories)
+                ? authStore.profilePreferences.walletWithdrawCategories
+                : []
+        }
+
+        return uniqueTags(from: action.tags + customTags)
     }
 
     var body: some View {
@@ -379,11 +536,11 @@ private struct WalletActionSheet: View {
                             .font(.system(size: 13, weight: .bold))
                             .foregroundStyle(FinancePalette.textSecondary)
                             .frame(width: 34, height: 34)
-                            .background(Color.white)
+                            .background(FinancePalette.cardBackground(for: colorScheme))
                             .clipShape(Circle())
                             .overlay(
                                 Circle()
-                                    .stroke(FinancePalette.icyBlue, lineWidth: 1)
+                                    .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
                             )
                     }
                     .buttonStyle(.plain)
@@ -392,11 +549,11 @@ private struct WalletActionSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Wallet Balance")
+                            Text("Liquid Balance")
                                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                                 .foregroundStyle(.white.opacity(0.76))
 
-                            Text("₹24,850.00")
+                            Text(financeStore.walletBalanceText)
                                 .font(.system(size: 30, weight: .bold, design: .rounded))
                                 .foregroundStyle(.white)
                                 .contentTransition(.numericText())
@@ -414,8 +571,8 @@ private struct WalletActionSheet: View {
                     }
 
                     HStack(spacing: 12) {
-                        HomeSheetMiniStat(title: "Cash In Hand", value: "₹18,500")
-                        HomeSheetMiniStat(title: "Safe Reserve", value: "₹6,350")
+                        HomeSheetMiniStat(title: "Money In", value: financeStore.walletMonthlyIn.currencyText)
+                        HomeSheetMiniStat(title: "Money Out", value: financeStore.walletMonthlyOut.currencyText)
                     }
                 }
                 .padding(22)
@@ -432,16 +589,27 @@ private struct WalletActionSheet: View {
                 .shadow(color: action.accentColor.opacity(0.20), radius: 20, y: 14)
 
                 VStack(alignment: .leading, spacing: 16) {
+                    if let errorMessage {
+                        WalletSheetStatusBanner(message: errorMessage)
+                    }
+
                     HomeSheetField(
                         title: "Amount",
                         prefix: "₹",
+                        placeholder: action.amountPlaceholder,
                         text: $amount
                     )
 
                     HomeSheetField(
                         title: action.sourceTitle,
                         prefix: nil,
+                        placeholder: action.sourcePlaceholder,
                         text: $source
+                    )
+
+                    HomeSheetDateField(
+                        title: "Date & Time",
+                        date: $selectedDate
                     )
 
                     VStack(alignment: .leading, spacing: 10) {
@@ -450,7 +618,7 @@ private struct WalletActionSheet: View {
                             .foregroundStyle(FinancePalette.textSecondary)
 
                         LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                            ForEach(action.tags, id: \.self) { tag in
+                            ForEach(availableTags, id: \.self) { tag in
                                 HomeActionTagChip(
                                     title: tag,
                                     isSelected: selectedTag == tag,
@@ -466,6 +634,7 @@ private struct WalletActionSheet: View {
                     HomeSheetField(
                         title: "Note",
                         prefix: nil,
+                        placeholder: action.notePlaceholder,
                         text: $note
                     )
                 }
@@ -477,7 +646,32 @@ private struct WalletActionSheet: View {
                     foreground: .white,
                     stroke: .clear,
                     action: {
-                        dismiss()
+                        let result: String?
+
+                        switch action {
+                        case .addMoney:
+                            result = financeStore.submitWalletAddMoney(
+                                amountText: amount,
+                                source: source,
+                                note: note,
+                                category: selectedTag,
+                                entryDate: selectedDate
+                            )
+                        case .withdraw:
+                            result = financeStore.submitWalletWithdraw(
+                                amountText: amount,
+                                destination: source,
+                                note: note,
+                                category: selectedTag,
+                                entryDate: selectedDate
+                            )
+                        }
+
+                        if let result {
+                            errorMessage = result
+                        } else {
+                            dismiss()
+                        }
                     }
                 )
             }
@@ -487,19 +681,52 @@ private struct WalletActionSheet: View {
         }
         .background(
             LinearGradient(
-                colors: [Color.white, FinancePalette.mistBlue],
+                colors: FinancePalette.sheetGradientColors(for: colorScheme),
                 startPoint: .top,
                 endPoint: .bottom
             )
             .ignoresSafeArea()
         )
+        .onAppear {
+            if action == .addMoney {
+                let preferredSource = authStore.profilePreferences.preferredWalletSource
+
+                if source.isEmpty {
+                    source = preferredSource.title
+                }
+
+                if availableTags.contains(preferredSource.walletTag) {
+                    selectedTag = preferredSource.walletTag
+                } else if !availableTags.contains(selectedTag), let firstTag = availableTags.first {
+                    selectedTag = firstTag
+                }
+            } else if !availableTags.contains(selectedTag), let firstTag = availableTags.first {
+                selectedTag = firstTag
+            }
+        }
+    }
+
+    private func uniqueTags(from items: [String]) -> [String] {
+        var seen = Set<String>()
+
+        return items.compactMap { item in
+            let cleaned = item.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !cleaned.isEmpty else { return nil }
+            let key = cleaned.lowercased()
+            guard !seen.contains(key) else { return nil }
+            seen.insert(key)
+            return cleaned
+        }
     }
 }
 
 private struct WalletActivityScreen: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
 
     let sections: [WalletActivitySection]
+    let currentBalance: Double
+
     @State private var selectedFilter: WalletHistoryFilter = .all
 
     private var filteredSections: [WalletActivitySection] {
@@ -557,13 +784,13 @@ private struct WalletActivityScreen: View {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(FinancePalette.textPrimary)
                     .frame(width: 42, height: 42)
-                    .background(Color.white)
+                    .background(FinancePalette.cardBackground(for: colorScheme))
                     .clipShape(Circle())
                     .overlay(
                         Circle()
-                            .stroke(FinancePalette.icyBlue, lineWidth: 1)
+                            .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
                     )
-                    .shadow(color: FinancePalette.cardShadow.opacity(0.45), radius: 12, y: 8)
+                    .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.45), radius: 12, y: 8)
             }
             .buttonStyle(.plain)
 
@@ -588,11 +815,11 @@ private struct WalletActivityScreen: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Visible Wallet Entries")
+                    Text("Visible Wallet Balance")
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white.opacity(0.76))
 
-                    Text("\(allVisibleEntries.count)")
+                    Text(currentBalance.currencyText)
                         .font(.system(size: 34, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .contentTransition(.numericText())
@@ -651,7 +878,7 @@ private struct WalletActivityScreen: View {
                                             endPoint: .trailing
                                         )
                                     } else {
-                                        Color.white
+                                        FinancePalette.cardBackground(for: colorScheme)
                                     }
                                 }
                             )
@@ -659,7 +886,7 @@ private struct WalletActivityScreen: View {
                             .overlay(
                                 Capsule()
                                     .stroke(
-                                        selectedFilter == filter ? Color.clear : FinancePalette.icyBlue,
+                                        selectedFilter == filter ? Color.clear : FinancePalette.border(for: colorScheme),
                                         lineWidth: 1
                                     )
                             )
@@ -673,14 +900,18 @@ private struct WalletActivityScreen: View {
 
     private var activityList: some View {
         VStack(alignment: .leading, spacing: 16) {
-            ForEach(filteredSections) { section in
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(section.title)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(FinancePalette.textSecondary)
+            if filteredSections.isEmpty {
+                EmptyWalletHistoryCard()
+            } else {
+                ForEach(filteredSections) { section in
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(section.title)
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(FinancePalette.textSecondary)
 
-                    ForEach(section.entries) { entry in
-                        WalletEntryRow(entry: entry)
+                        ForEach(section.entries) { entry in
+                            WalletEntryRow(entry: entry)
+                        }
                     }
                 }
             }
@@ -688,70 +919,31 @@ private struct WalletActivityScreen: View {
     }
 }
 
-private struct WalletActivitySection: Identifiable {
-    let id = UUID()
-    let title: String
-    let entries: [WalletEntry]
+private struct WalletSheetStatusBanner: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let message: String
 
-    static let sampleData: [WalletActivitySection] = [
-        WalletActivitySection(
-            title: "Today",
-            entries: [
-                WalletEntry(
-                    title: "Cash Added",
-                    subtitle: "Pocket deposit",
-                    amount: "+₹1,500",
-                    time: "12:30 PM",
-                    kind: .deposit
-                ),
-                WalletEntry(
-                    title: "ATM Withdraw",
-                    subtitle: "Daily expenses",
-                    amount: "-₹500",
-                    time: "11:10 AM",
-                    kind: .withdrawal
-                )
-            ]
-        ),
-        WalletActivitySection(
-            title: "Yesterday",
-            entries: [
-                WalletEntry(
-                    title: "Cash Added",
-                    subtitle: "Office reimbursement",
-                    amount: "+₹850",
-                    time: "05:40 PM",
-                    kind: .deposit
-                ),
-                WalletEntry(
-                    title: "Wallet Spend",
-                    subtitle: "Travel cash out",
-                    amount: "-₹320",
-                    time: "01:20 PM",
-                    kind: .withdrawal
-                )
-            ]
-        ),
-        WalletActivitySection(
-            title: "This Week",
-            entries: [
-                WalletEntry(
-                    title: "Cash Added",
-                    subtitle: "Family transfer",
-                    amount: "+₹2,000",
-                    time: "Monday",
-                    kind: .deposit
-                ),
-                WalletEntry(
-                    title: "Wallet Spend",
-                    subtitle: "Bills payment",
-                    amount: "-₹1,240",
-                    time: "Sunday",
-                    kind: .withdrawal
-                )
-            ]
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(Color(red: 0.72, green: 0.16, blue: 0.20))
+                .padding(.top, 2)
+
+            Text(message)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color(red: 0.72, green: 0.16, blue: 0.20))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .background(
+            colorScheme == .dark
+                ? Color(red: 0.27, green: 0.14, blue: 0.16)
+                : Color(red: 1.0, green: 0.94, blue: 0.95)
         )
-    ]
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
 }
 
 private enum WalletHistoryFilter: String, CaseIterable, Identifiable {
@@ -789,6 +981,8 @@ private struct WalletMetricPill: View {
             Text(value)
                 .font(.system(size: 15, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 14)
@@ -803,6 +997,7 @@ private struct WalletMetricPill: View {
 }
 
 private struct WalletActionCard: View {
+    @Environment(\.colorScheme) private var colorScheme
     let title: String
     let subtitle: String
     let amount: String
@@ -827,6 +1022,8 @@ private struct WalletActionCard: View {
                 Text(amount)
                     .font(.system(size: 14, weight: .bold, design: .rounded))
                     .foregroundStyle(color)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
 
             VStack(alignment: .leading, spacing: 5) {
@@ -844,24 +1041,20 @@ private struct WalletActionCard: View {
         .frame(maxWidth: .infinity, minHeight: 144, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.white, FinancePalette.mistBlue],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .fill(FinancePalette.elevatedBackground(for: colorScheme))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(FinancePalette.icyBlue.opacity(0.95), lineWidth: 1)
+                .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
         )
-        .shadow(color: FinancePalette.cardShadow.opacity(0.44), radius: 14, y: 10)
+        .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.44), radius: 14, y: 10)
     }
 }
 
 private struct WalletEntryRow: View {
+    @Environment(\.colorScheme) private var colorScheme
     let entry: WalletEntry
+    var showsAmount: Bool = true
 
     var body: some View {
         HStack(spacing: 14) {
@@ -883,12 +1076,13 @@ private struct WalletEntryRow: View {
                 Text(entry.subtitle)
                     .font(.system(size: 12, weight: .medium, design: .rounded))
                     .foregroundStyle(FinancePalette.textSecondary)
+                    .lineLimit(2)
             }
 
             Spacer()
 
             VStack(alignment: .trailing, spacing: 4) {
-                Text(entry.amount)
+                Text(showsAmount ? entry.amount : "••••••")
                     .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundStyle(entry.kind.color)
 
@@ -901,12 +1095,183 @@ private struct WalletEntryRow: View {
         .padding(.vertical, 15)
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Color.white.opacity(0.98))
+                .fill(FinancePalette.elevatedBackground(for: colorScheme))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(FinancePalette.icyBlue.opacity(0.92), lineWidth: 1)
+                .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
         )
-        .shadow(color: FinancePalette.cardShadow.opacity(0.36), radius: 12, y: 8)
+        .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.36), radius: 12, y: 8)
+    }
+}
+
+private struct EmptyWalletEntriesCard: View {
+    @Environment(\.colorScheme) private var colorScheme
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SettingsIconBadge(icon: "wallet.pass.fill", color: FinancePalette.royalBlue)
+
+            Text("No wallet activity yet")
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .foregroundStyle(FinancePalette.textPrimary)
+
+            Text("Use Add Money or Withdraw to start tracking your liquid wallet balance.")
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .foregroundStyle(FinancePalette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(FinancePalette.elevatedBackground(for: colorScheme))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
+        )
+        .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.34), radius: 12, y: 8)
+    }
+}
+
+private struct EmptyWalletHistoryCard: View {
+    @Environment(\.colorScheme) private var colorScheme
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("No wallet history yet")
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .foregroundStyle(FinancePalette.textPrimary)
+
+            Text("Your cash adds and withdraws will appear here once you start using the wallet.")
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .foregroundStyle(FinancePalette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(FinancePalette.elevatedBackground(for: colorScheme))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
+        )
+        .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.36), radius: 12, y: 8)
+    }
+}
+
+enum DeviceAuthenticationMethod {
+    case faceID
+    case touchID
+    case passcode
+
+    var title: String {
+        switch self {
+        case .faceID:
+            return "Face ID"
+        case .touchID:
+            return "Touch ID"
+        case .passcode:
+            return "Passcode"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .faceID:
+            return "faceid"
+        case .touchID:
+            return "touchid"
+        case .passcode:
+            return "lock.fill"
+        }
+    }
+
+    static func availableMethod() -> DeviceAuthenticationMethod {
+        let context = LAContext()
+        var error: NSError?
+
+        if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
+            return DeviceAuthenticationMethod(biometryType: context.biometryType)
+        }
+
+        return .passcode
+    }
+
+    init(biometryType: LABiometryType) {
+        switch biometryType {
+        case .faceID:
+            self = .faceID
+        case .touchID:
+            self = .touchID
+        default:
+            self = .passcode
+        }
+    }
+}
+
+enum DeviceAuthenticationResult {
+    case success(DeviceAuthenticationMethod)
+    case failure(String)
+}
+
+enum DeviceAuthenticator {
+    static func authenticate(reason: String) async -> DeviceAuthenticationResult {
+        let context = LAContext()
+        context.localizedCancelTitle = "Cancel"
+
+        var error: NSError?
+
+        if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
+            let method = DeviceAuthenticationMethod(biometryType: context.biometryType)
+
+            do {
+                let success = try await context.evaluatePolicy(
+                    .deviceOwnerAuthenticationWithBiometrics,
+                    localizedReason: reason
+                )
+
+                return success ? .success(method) : .failure("Authentication did not complete.")
+            } catch {
+                return .failure(message(for: error))
+            }
+        }
+
+        if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
+            do {
+                let success = try await context.evaluatePolicy(
+                    .deviceOwnerAuthentication,
+                    localizedReason: reason
+                )
+
+                return success ? .success(.passcode) : .failure("Authentication did not complete.")
+            } catch {
+                return .failure(message(for: error))
+            }
+        }
+
+        return .failure(message(for: error))
+    }
+
+    private static func message(for error: Error?) -> String {
+        guard let laError = error as? LAError else {
+            return "Face ID or device authentication is not available on this device yet."
+        }
+
+        switch laError.code {
+        case .biometryNotAvailable:
+            return "Face ID or Touch ID is not available on this device."
+        case .biometryNotEnrolled:
+            return "Set up Face ID or Touch ID in Settings to protect the wallet balance."
+        case .passcodeNotSet:
+            return "Set a device passcode first before using balance protection."
+        case .userCancel, .systemCancel, .appCancel:
+            return "Balance unlock was cancelled."
+        case .authenticationFailed:
+            return "The identity check failed. Please try again."
+        default:
+            return laError.localizedDescription
+        }
     }
 }
