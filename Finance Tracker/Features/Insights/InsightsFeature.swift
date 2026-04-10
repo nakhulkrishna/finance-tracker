@@ -1,18 +1,19 @@
+import Foundation
 import SwiftUI
 
 struct InsightsScreen: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject private var financeStore: FinanceStore
+    @EnvironmentObject private var premiumStore: PremiumStore
     @State private var selectedRange: InsightRange = .month
     @State private var hasAnimatedIn = false
+    @State private var isShowingPremium = false
     @Namespace private var rangePickerAnimation
 
     private let categoryColumns = [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)]
 
-    private var chartBars: [InsightBar] {
-        selectedRange.chartBars
-    }
-
-    private var categories: [InsightCategory] {
-        selectedRange.categoryData
+    private var snapshot: InsightSnapshot {
+        financeStore.insightSnapshot(for: selectedRange)
     }
 
     var body: some View {
@@ -42,23 +43,33 @@ struct InsightsScreen: View {
             guard !hasAnimatedIn else { return }
             hasAnimatedIn = true
         }
+        .onChange(of: premiumStore.isPremium) { _, isPremium in
+            if !isPremium && selectedRange == .year {
+                selectedRange = .month
+            }
+        }
+        .sheet(isPresented: $isShowingPremium) {
+            PremiumSubscriptionScreen()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.hidden)
+        }
     }
 
     private var chartSection: some View {
         VStack(alignment: .leading, spacing: 22) {
             HStack(alignment: .top, spacing: 14) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(selectedRange.summaryTitle)
+                    Text(snapshot.summaryTitle)
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundStyle(FinancePalette.textSecondary)
                         .contentTransition(.opacity)
 
-                    Text(selectedRange.totalAmount)
+                    Text(snapshot.totalAmount)
                         .font(.system(size: 34, weight: .bold, design: .rounded))
                         .foregroundStyle(FinancePalette.textPrimary)
                         .contentTransition(.numericText())
 
-                    Text(selectedRange.supportingText)
+                    Text(snapshot.supportingText)
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(FinancePalette.royalBlue)
                         .contentTransition(.opacity)
@@ -66,47 +77,54 @@ struct InsightsScreen: View {
 
                 Spacer(minLength: 12)
 
-                Text(selectedRange.badgeTitle)
+                Text(snapshot.badgeTitle)
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundStyle(FinancePalette.royalBlue)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(FinancePalette.paleBlue)
+                    .background(FinancePalette.softBlueBackground(for: colorScheme))
                     .clipShape(Capsule())
             }
 
-            InsightBarChart(bars: chartBars)
+            InsightBarChart(bars: snapshot.chartBars)
         }
         .padding(22)
         .background(
             RoundedRectangle(cornerRadius: 34, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.white, FinancePalette.mistBlue],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .fill(FinancePalette.elevatedBackground(for: colorScheme))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 34, style: .continuous)
-                .stroke(FinancePalette.icyBlue.opacity(0.95), lineWidth: 1)
+                .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
         )
-        .shadow(color: FinancePalette.cardShadow.opacity(1.05), radius: 22, y: 14)
+        .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(1.05), radius: 22, y: 14)
     }
 
     private var rangePicker: some View {
         HStack(spacing: 28) {
-            ForEach(InsightRange.allCases) { range in
-                Button(action: {
-                    withAnimation(.spring(response: 0.48, dampingFraction: 0.86)) {
-                        selectedRange = range
-                    }
-                }) {
+                ForEach(InsightRange.allCases) { range in
+                    Button(action: {
+                        if range == .year && !premiumStore.hasAccess(to: .yearlyInsights) {
+                            isShowingPremium = true
+                            return
+                        }
+
+                        withAnimation(.spring(response: 0.48, dampingFraction: 0.86)) {
+                            selectedRange = range
+                        }
+                    }) {
                     VStack(spacing: 9) {
-                        Text(range.displayTitle)
-                            .font(.system(size: 14, weight: selectedRange == range ? .bold : .semibold, design: .rounded))
-                            .foregroundStyle(selectedRange == range ? FinancePalette.textPrimary : FinancePalette.textSecondary)
+                        HStack(spacing: 5) {
+                            Text(range.displayTitle)
+                                .font(.system(size: 14, weight: selectedRange == range ? .bold : .semibold, design: .rounded))
+                                .foregroundStyle(selectedRange == range ? FinancePalette.textPrimary : FinancePalette.textSecondary)
+
+                            if range == .year && !premiumStore.hasAccess(to: .yearlyInsights) {
+                                Image(systemName: "lock.fill")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(FinancePalette.royalBlue)
+                            }
+                        }
 
                         ZStack {
                             Capsule()
@@ -135,11 +153,11 @@ struct InsightsScreen: View {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Spending Categories")
-                        .font(.system(size: 21, weight: .semibold, design: .rounded))
+                        .font(.system(size: 19, weight: .semibold, design: .rounded))
                         .foregroundStyle(FinancePalette.textPrimary)
 
                     Text("Clear breakdown of where your money went")
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(FinancePalette.textSecondary)
                         .lineLimit(1)
                 }
@@ -151,12 +169,12 @@ struct InsightsScreen: View {
                     .foregroundStyle(FinancePalette.royalBlue)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(FinancePalette.paleBlue)
+                    .background(FinancePalette.softBlueBackground(for: colorScheme))
                     .clipShape(Capsule())
             }
 
             LazyVGrid(columns: categoryColumns, spacing: 16) {
-                ForEach(categories) { category in
+                ForEach(snapshot.categories) { category in
                     InsightCategoryCard(category: category)
                 }
             }
@@ -167,19 +185,96 @@ struct InsightsScreen: View {
 }
 
 struct InsightsNotificationsScreen: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var financeStore: FinanceStore
 
     @State private var selectedFilter: InsightNotificationFilter = .all
-    private let sections = InsightNotificationSection.sampleData
+
+    private var allNotifications: [InsightNotification] {
+        var notifications: [InsightNotification] = []
+        let now = Date()
+
+        let monthlyPayments = financeStore.operations.filter { record in
+            record.kind == .payment && Calendar.current.isDate(record.createdAt, equalTo: now, toGranularity: .month)
+        }
+        let todayPayments = monthlyPayments.filter { Calendar.current.isDateInToday($0.createdAt) }
+
+        if financeStore.todaySpend > 0 {
+            notifications.append(
+                InsightNotification(
+                    title: "Today's spending updated",
+                    subtitle: "You spent \(financeStore.todaySpend.currencyText) across \(financeStore.todayTransactionCount) entry\(financeStore.todayTransactionCount == 1 ? "" : "ies").",
+                    detail: todayPayments.first.map {
+                        "Latest payment was \($0.title) under \($0.category)."
+                    } ?? "Your spending dashboard has fresh totals for today.",
+                    createdAt: todayPayments.first?.createdAt ?? now,
+                    badge: "Today",
+                    kind: .spending
+                )
+            )
+        }
+
+        if financeStore.monthlySpend > 0 {
+            let topCategory = monthlyPayments
+                .reduce(into: [String: Double]()) { partial, record in
+                    partial[record.category, default: 0] += record.amount
+                }
+                .max(by: { $0.value < $1.value })?
+                .key ?? "Spending"
+
+            notifications.append(
+                InsightNotification(
+                    title: "Monthly trend refreshed",
+                    subtitle: "This month you have logged \(financeStore.monthlySpend.currencyText) in payments.",
+                    detail: "\(topCategory) is currently the largest spending category in your tracker.",
+                    createdAt: monthlyPayments.first?.createdAt ?? now.addingTimeInterval(-3600),
+                    badge: "Month",
+                    kind: .trend
+                )
+            )
+        }
+
+        if let latestWalletRecord = financeStore.walletRecords.first {
+            notifications.append(
+                InsightNotification(
+                    title: "Wallet activity changed",
+                    subtitle: "Liquid wallet balance is now \(financeStore.walletBalance.currencyText).",
+                    detail: "Latest wallet entry was \(latestWalletRecord.title) under \(latestWalletRecord.category).",
+                    createdAt: latestWalletRecord.createdAt,
+                    badge: "Wallet",
+                    kind: .reminder
+                )
+            )
+        }
+
+        if let latestInvestmentRecord = financeStore.investmentRecords.first, financeStore.totalInvestmentBalance > 0 {
+            notifications.append(
+                InsightNotification(
+                    title: "Assets are being tracked",
+                    subtitle: "Investment value is \(financeStore.totalInvestmentBalance.currencyText) across \(financeStore.activeInvestmentCount) active holding\(financeStore.activeInvestmentCount == 1 ? "" : "s").",
+                    detail: "Latest investment update was in \(latestInvestmentRecord.assetKind.badgeTitle) with \(latestInvestmentRecord.counterparty).",
+                    createdAt: latestInvestmentRecord.createdAt,
+                    badge: latestInvestmentRecord.assetKind.badgeTitle,
+                    kind: .trend
+                )
+            )
+        }
+
+        return notifications.sorted { $0.createdAt > $1.createdAt }
+    }
 
     private var filteredSections: [InsightNotificationSection] {
-        sections.compactMap { section in
-            let notifications = section.notifications.filter { notification in
-                selectedFilter.matches(notification)
-            }
+        let filteredNotifications = allNotifications.filter { selectedFilter.matches($0) }
+        let groupedNotifications = Dictionary(grouping: filteredNotifications) { notificationBucketTitle(for: $0.createdAt) }
+        let orderedTitles = ["Today", "Yesterday", "Earlier"]
 
-            guard !notifications.isEmpty else { return nil }
-            return InsightNotificationSection(title: section.title, notifications: notifications)
+        return orderedTitles.compactMap { title in
+            guard let notifications = groupedNotifications[title], !notifications.isEmpty else { return nil }
+            return InsightNotificationSection(
+                title: title,
+                notifications: notifications.sorted { $0.createdAt > $1.createdAt }
+            )
         }
     }
 
@@ -213,7 +308,7 @@ struct InsightsNotificationsScreen: View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Notifications")
-                    .font(.system(size: 21, weight: .bold, design: .rounded))
+                    .font(.system(size: 19, weight: .bold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
 
                 Text("Local insights only, no FCM or push service")
@@ -231,13 +326,13 @@ struct InsightsNotificationsScreen: View {
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(FinancePalette.textPrimary)
                     .frame(width: 40, height: 40)
-                    .background(Color.white)
+                    .background(FinancePalette.cardBackground(for: colorScheme))
                     .clipShape(Circle())
                     .overlay(
                         Circle()
-                            .stroke(FinancePalette.icyBlue, lineWidth: 1)
+                            .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
                     )
-                    .shadow(color: FinancePalette.cardShadow.opacity(0.45), radius: 12, y: 8)
+                    .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.45), radius: 12, y: 8)
             }
             .buttonStyle(.plain)
         }
@@ -252,7 +347,7 @@ struct InsightsNotificationsScreen: View {
                         .foregroundStyle(.white.opacity(0.76))
 
                     Text("\(unreadCount) unread")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .contentTransition(.numericText())
 
@@ -314,7 +409,7 @@ struct InsightsNotificationsScreen: View {
                                             endPoint: .trailing
                                         )
                                     } else {
-                                        Color.white
+                                        FinancePalette.cardBackground(for: colorScheme)
                                     }
                                 }
                             )
@@ -322,7 +417,7 @@ struct InsightsNotificationsScreen: View {
                             .overlay(
                                 Capsule()
                                     .stroke(
-                                        selectedFilter == filter ? Color.clear : FinancePalette.icyBlue,
+                                        selectedFilter == filter ? Color.clear : FinancePalette.border(for: colorScheme),
                                         lineWidth: 1
                                     )
                             )
@@ -336,18 +431,34 @@ struct InsightsNotificationsScreen: View {
 
     private var notificationList: some View {
         VStack(alignment: .leading, spacing: 16) {
-            ForEach(filteredSections) { section in
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(section.title)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(FinancePalette.textSecondary)
+            if filteredSections.isEmpty {
+                EmptyInsightNotificationsCard()
+            } else {
+                ForEach(filteredSections) { section in
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(section.title)
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(FinancePalette.textSecondary)
 
-                    ForEach(section.notifications) { notification in
-                        InsightNotificationCard(notification: notification)
+                        ForEach(section.notifications) { notification in
+                            InsightNotificationCard(notification: notification)
+                        }
                     }
                 }
             }
         }
+    }
+
+    private func notificationBucketTitle(for date: Date) -> String {
+        if Calendar.current.isDateInToday(date) {
+            return "Today"
+        }
+
+        if Calendar.current.isDateInYesterday(date) {
+            return "Yesterday"
+        }
+
+        return "Earlier"
     }
 }
 
@@ -377,78 +488,6 @@ private struct InsightNotificationSection: Identifiable {
     let id = UUID()
     let title: String
     let notifications: [InsightNotification]
-
-    static let sampleData: [InsightNotificationSection] = [
-        InsightNotificationSection(
-            title: "Today",
-            notifications: [
-                InsightNotification(
-                    title: "Food spending is rising",
-                    subtitle: "You spent 18% more on food than your weekly average.",
-                    detail: "Dining has become your most active category today.",
-                    time: "2 min ago",
-                    badge: "Food",
-                    kind: .spending,
-                    isUnread: true
-                ),
-                InsightNotification(
-                    title: "Monthly budget is 68% used",
-                    subtitle: "Your tracked monthly spend is now moving into the final third.",
-                    detail: "Bills and shopping are the largest contributors so far.",
-                    time: "18 min ago",
-                    badge: "Month",
-                    kind: .trend,
-                    isUnread: true
-                )
-            ]
-        ),
-        InsightNotificationSection(
-            title: "Yesterday",
-            notifications: [
-                InsightNotification(
-                    title: "Bills remain your top category",
-                    subtitle: "Bills make up 40% of this month's total spending.",
-                    detail: "Utilities continue to lead over shopping and food.",
-                    time: "Yesterday",
-                    badge: "Bills",
-                    kind: .trend,
-                    isUnread: false
-                ),
-                InsightNotification(
-                    title: "Wallet top-up pattern noticed",
-                    subtitle: "You added money more than once this week.",
-                    detail: "A single larger top-up may keep your wallet flow cleaner.",
-                    time: "Yesterday",
-                    badge: "Wallet",
-                    kind: .reminder,
-                    isUnread: false
-                )
-            ]
-        ),
-        InsightNotificationSection(
-            title: "Earlier",
-            notifications: [
-                InsightNotification(
-                    title: "Travel expense cooled down",
-                    subtitle: "Travel spend dropped 24% compared with the previous week.",
-                    detail: "Your commute costs are looking lighter this cycle.",
-                    time: "Monday",
-                    badge: "Travel",
-                    kind: .spending,
-                    isUnread: false
-                ),
-                InsightNotification(
-                    title: "Review your weekly insights",
-                    subtitle: "A fresh summary is ready based on your latest entries.",
-                    detail: "Open Insights to see category movement and changes.",
-                    time: "Sunday",
-                    badge: "Insights",
-                    kind: .reminder,
-                    isUnread: false
-                )
-            ]
-        )
-    ]
 }
 
 private struct InsightNotification: Identifiable {
@@ -484,13 +523,21 @@ private struct InsightNotification: Identifiable {
     let title: String
     let subtitle: String
     let detail: String
-    let time: String
+    let createdAt: Date
     let badge: String
     let kind: Kind
-    let isUnread: Bool
+
+    var time: String {
+        notificationRelativeTimeFormatter.localizedString(for: createdAt, relativeTo: .now)
+    }
+
+    var isUnread: Bool {
+        Date().timeIntervalSince(createdAt) < 43_200
+    }
 }
 
 private struct InsightNotificationCard: View {
+    @Environment(\.colorScheme) private var colorScheme
     let notification: InsightNotification
 
     var body: some View {
@@ -550,19 +597,41 @@ private struct InsightNotificationCard: View {
         .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.white, FinancePalette.mistBlue],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .fill(FinancePalette.elevatedBackground(for: colorScheme))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .stroke(FinancePalette.icyBlue.opacity(0.96), lineWidth: 1)
+                .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
         )
-        .shadow(color: FinancePalette.cardShadow.opacity(0.36), radius: 14, y: 10)
+        .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.36), radius: 14, y: 10)
+    }
+}
+
+private struct EmptyInsightNotificationsCard: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("No insight notifications yet")
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .foregroundStyle(FinancePalette.textPrimary)
+
+            Text("Once you add real transactions, wallet logs, or investments, this inbox will show live insight updates.")
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .foregroundStyle(FinancePalette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(FinancePalette.elevatedBackground(for: colorScheme))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
+        )
+        .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.32), radius: 12, y: 8)
     }
 }
 
@@ -582,6 +651,7 @@ private struct InsightBarChart: View {
 }
 
 private struct InsightBarColumn: View {
+    @Environment(\.colorScheme) private var colorScheme
     let bar: InsightBar
     let index: Int
     @State private var animateIn = false
@@ -594,7 +664,7 @@ private struct InsightBarColumn: View {
 
             ZStack(alignment: .bottom) {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(FinancePalette.paleBlue)
+                    .fill(FinancePalette.softBlueBackground(for: colorScheme))
                     .frame(width: 60, height: 164)
 
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -618,12 +688,12 @@ private struct InsightBarColumn: View {
 
             VStack(spacing: 4) {
                 Text(bar.title)
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
                     .lineLimit(1)
 
                 Text(bar.amount)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
                     .foregroundStyle(FinancePalette.textSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -643,6 +713,7 @@ private struct InsightBarColumn: View {
 }
 
 private struct PercentageBadge: View {
+    @Environment(\.colorScheme) private var colorScheme
     let label: String
     let color: Color
 
@@ -652,17 +723,18 @@ private struct PercentageBadge: View {
             .foregroundStyle(FinancePalette.textPrimary)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(Color.white.opacity(0.96))
+            .background(FinancePalette.elevatedBackground(for: colorScheme))
             .overlay(
                 Capsule()
                     .stroke(color.opacity(0.16), lineWidth: 1)
             )
             .clipShape(Capsule())
-            .shadow(color: FinancePalette.cardShadow.opacity(0.78), radius: 10, y: 8)
+            .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.78), radius: 10, y: 8)
     }
 }
 
 private struct InsightCategoryCard: View {
+    @Environment(\.colorScheme) private var colorScheme
     let category: InsightCategory
     @State private var animateIn = false
 
@@ -692,7 +764,7 @@ private struct InsightCategoryCard: View {
                     .foregroundStyle(category.color)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(Color.white.opacity(0.96))
+                    .background(FinancePalette.elevatedBackground(for: colorScheme))
                     .overlay(
                         Capsule()
                             .stroke(category.color.opacity(0.18), lineWidth: 1)
@@ -702,12 +774,12 @@ private struct InsightCategoryCard: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(category.title)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
                     .lineLimit(1)
 
                 Text(category.caption)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(FinancePalette.textSecondary)
                     .lineLimit(1)
             }
@@ -716,13 +788,14 @@ private struct InsightCategoryCard: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(category.amount)
-                    .font(.system(size: 25, weight: .bold, design: .rounded))
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.82)
                     .contentTransition(.numericText())
 
                 Text(category.footnote)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(FinancePalette.textSecondary)
                     .lineLimit(1)
             }
@@ -742,7 +815,7 @@ private struct InsightCategoryCard: View {
         .background(
             ZStack {
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.white.opacity(0.98))
+                    .fill(FinancePalette.elevatedBackground(for: colorScheme))
 
                 Circle()
                     .fill(category.color.opacity(0.08))
@@ -753,7 +826,10 @@ private struct InsightCategoryCard: View {
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [Color.white, category.backgroundTint],
+                            colors: [
+                                FinancePalette.elevatedBackground(for: colorScheme),
+                                colorScheme == .dark ? category.color.opacity(0.18) : category.backgroundTint
+                            ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -763,9 +839,9 @@ private struct InsightCategoryCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(FinancePalette.icyBlue.opacity(0.95), lineWidth: 1)
+                .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
         )
-        .shadow(color: FinancePalette.cardShadow.opacity(0.58), radius: 18, y: 12)
+        .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.58), radius: 18, y: 12)
         .opacity(animateIn ? 1 : 0)
         .offset(y: animateIn ? 0 : 12)
         .scaleEffect(animateIn ? 1 : 0.98)
@@ -778,3 +854,9 @@ private struct InsightCategoryCard: View {
         .animation(.spring(response: 0.48, dampingFraction: 0.88), value: category.amount)
     }
 }
+
+private let notificationRelativeTimeFormatter: RelativeDateTimeFormatter = {
+    let formatter = RelativeDateTimeFormatter()
+    formatter.unitsStyle = .short
+    return formatter
+}()

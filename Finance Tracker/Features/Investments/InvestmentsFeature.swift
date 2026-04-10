@@ -1,38 +1,35 @@
 import SwiftUI
 
 struct InvestmentsScreen: View {
-    private let holdings = InvestmentHolding.sampleData
-    private let salarySplit = SalaryAllocationItem.sampleData
-    private let activitySections = InvestmentActivitySection.sampleData
+    @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject private var financeStore: FinanceStore
 
     @State private var activeAction: InvestmentActionKind?
     @State private var isShowingHistory = false
     @State private var isShowingNotifications = false
 
     private var totalInvested: Double {
-        holdings.reduce(0) { $0 + $1.investedAmount }
+        financeStore.totalInvestedAmount
     }
 
     private var totalCurrentValue: Double {
-        holdings.reduce(0) { $0 + $1.currentValue }
-    }
-
-    private var totalGrowth: Double {
-        totalCurrentValue - totalInvested
+        financeStore.totalInvestmentBalance
     }
 
     private var familyHeldValue: Double {
-        holdings
-            .filter { $0.kind == .familyReserve }
-            .reduce(0) { $0 + $1.currentValue }
+        financeStore.familyHeldInvestmentValue
     }
 
-    private var monthlyContribution: Double {
-        holdings.reduce(0) { $0 + $1.monthlyContribution }
+    private var totalRedeemed: Double {
+        financeStore.totalRedeemedAmount
     }
 
-    private var emiCommitment: Double {
-        salarySplit.first(where: { $0.title == "EMI" })?.amount ?? 0
+    private var holdings: [InvestmentHolding] {
+        financeStore.investmentHoldings
+    }
+
+    private var activitySections: [InvestmentActivitySection] {
+        financeStore.investmentActivitySections
     }
 
     var body: some View {
@@ -61,6 +58,7 @@ struct InvestmentsScreen: View {
                 totalCurrentValue: totalCurrentValue,
                 familyHeldValue: familyHeldValue
             )
+            .environmentObject(financeStore)
             .presentationDetents([.height(590), .large])
             .presentationDragIndicator(.visible)
         }
@@ -85,12 +83,12 @@ struct InvestmentsScreen: View {
                         .foregroundStyle(.white.opacity(0.78))
 
                     Text(totalCurrentValue.currencyText)
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
-                        .minimumScaleFactor(0.78)
+                        .minimumScaleFactor(0.72)
                         .contentTransition(.numericText())
 
-                    Text("Not counted in expenses")
+                    Text(holdings.isEmpty ? "Start tracking money outside your bank" : "Not counted in expenses")
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(.white.opacity(0.78))
                 }
@@ -171,14 +169,14 @@ struct InvestmentsScreen: View {
             )
 
             MinimalInvestmentMetricCard(
-                title: "Growth",
-                value: totalGrowth.signedCurrencyText,
+                title: "Redeemed",
+                value: totalRedeemed.currencyText,
                 accentColor: FinancePalette.oceanBlue
             )
 
             MinimalInvestmentMetricCard(
-                title: "EMI",
-                value: emiCommitment.currencyText,
+                title: "Active",
+                value: "\(financeStore.activeInvestmentCount) items",
                 accentColor: FinancePalette.sapphireBlue
             )
         }
@@ -188,7 +186,7 @@ struct InvestmentsScreen: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("Portfolio")
-                    .font(.system(size: 21, weight: .semibold, design: .rounded))
+                    .font(.system(size: 19, weight: .semibold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
 
                 Spacer()
@@ -201,15 +199,19 @@ struct InvestmentsScreen: View {
                         .foregroundStyle(FinancePalette.royalBlue)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(FinancePalette.paleBlue)
+                        .background(FinancePalette.softBlueBackground(for: colorScheme))
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }
 
             VStack(spacing: 12) {
-                ForEach(holdings) { holding in
-                    InvestmentHoldingCard(holding: holding)
+                if holdings.isEmpty {
+                    EmptyInvestmentPortfolioCard()
+                } else {
+                    ForEach(holdings) { holding in
+                        InvestmentHoldingCard(holding: holding)
+                    }
                 }
             }
         }
@@ -285,21 +287,21 @@ private enum InvestmentActionKind: String, Identifiable {
         }
     }
 
-    var primaryFieldValue: String {
+    var primaryFieldPlaceholder: String {
         switch self {
         case .add:
-            return "Father"
+            return "Father / Broker / Bank"
         case .redeem:
-            return "Wallet"
+            return "Wallet / Bank"
         }
     }
 
-    var noteValue: String {
+    var notePlaceholder: String {
         switch self {
         case .add:
-            return "Salary amount kept safely and owned by me"
+            return "Optional note about this asset"
         case .redeem:
-            return "Move this amount back for use"
+            return "Optional reason for redeeming"
         }
     }
 
@@ -317,7 +319,7 @@ private enum InvestmentActionKind: String, Identifiable {
         case .add:
             return ["Family Hold", "SIP", "Gold", "FD"]
         case .redeem:
-            return ["Family Hold", "SIP", "Gold", "Wallet"]
+            return ["Family Hold", "SIP", "Gold", "FD"]
         }
     }
 
@@ -332,7 +334,9 @@ private enum InvestmentActionKind: String, Identifiable {
 }
 
 private struct InvestmentActionSheet: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var financeStore: FinanceStore
 
     let action: InvestmentActionKind
     let totalCurrentValue: Double
@@ -342,15 +346,18 @@ private struct InvestmentActionSheet: View {
     @State private var primaryField: String
     @State private var note: String
     @State private var selectedTag: String
+    @State private var selectedDate: Date
+    @State private var errorMessage: String?
 
     init(action: InvestmentActionKind, totalCurrentValue: Double, familyHeldValue: Double) {
         self.action = action
         self.totalCurrentValue = totalCurrentValue
         self.familyHeldValue = familyHeldValue
-        _amount = State(initialValue: action.amountPlaceholder)
-        _primaryField = State(initialValue: action.primaryFieldValue)
-        _note = State(initialValue: action.noteValue)
+        _amount = State(initialValue: "")
+        _primaryField = State(initialValue: "")
+        _note = State(initialValue: "")
         _selectedTag = State(initialValue: action.tags.first ?? "")
+        _selectedDate = State(initialValue: .now)
     }
 
     var body: some View {
@@ -386,11 +393,11 @@ private struct InvestmentActionSheet: View {
                             .font(.system(size: 13, weight: .bold))
                             .foregroundStyle(FinancePalette.textSecondary)
                             .frame(width: 34, height: 34)
-                            .background(Color.white)
+                            .background(FinancePalette.cardBackground(for: colorScheme))
                             .clipShape(Circle())
                             .overlay(
                                 Circle()
-                                    .stroke(FinancePalette.icyBlue, lineWidth: 1)
+                                    .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
                             )
                     }
                     .buttonStyle(.plain)
@@ -439,16 +446,27 @@ private struct InvestmentActionSheet: View {
                 .shadow(color: action.accentColor.opacity(0.20), radius: 20, y: 14)
 
                 VStack(alignment: .leading, spacing: 16) {
+                    if let errorMessage {
+                        InvestmentSheetStatusBanner(message: errorMessage)
+                    }
+
                     HomeSheetField(
                         title: "Amount",
                         prefix: "₹",
+                        placeholder: action.amountPlaceholder,
                         text: $amount
                     )
 
                     HomeSheetField(
                         title: action.primaryFieldTitle,
                         prefix: nil,
+                        placeholder: action.primaryFieldPlaceholder,
                         text: $primaryField
+                    )
+
+                    HomeSheetDateField(
+                        title: "Date & Time",
+                        date: $selectedDate
                     )
 
                     VStack(alignment: .leading, spacing: 10) {
@@ -473,6 +491,7 @@ private struct InvestmentActionSheet: View {
                     HomeSheetField(
                         title: "Note",
                         prefix: nil,
+                        placeholder: action.notePlaceholder,
                         text: $note
                     )
                 }
@@ -484,7 +503,32 @@ private struct InvestmentActionSheet: View {
                     foreground: .white,
                     stroke: .clear,
                     action: {
-                        dismiss()
+                        let result: String?
+
+                        switch action {
+                        case .add:
+                            result = financeStore.submitInvestment(
+                                amountText: amount,
+                                holder: primaryField,
+                                note: note,
+                                selectionTag: selectedTag,
+                                entryDate: selectedDate
+                            )
+                        case .redeem:
+                            result = financeStore.redeemInvestment(
+                                amountText: amount,
+                                destination: primaryField,
+                                note: note,
+                                selectionTag: selectedTag,
+                                entryDate: selectedDate
+                            )
+                        }
+
+                        if let result {
+                            errorMessage = result
+                        } else {
+                            dismiss()
+                        }
                     }
                 )
             }
@@ -494,7 +538,7 @@ private struct InvestmentActionSheet: View {
         }
         .background(
             LinearGradient(
-                colors: [Color.white, FinancePalette.mistBlue],
+                colors: FinancePalette.sheetGradientColors(for: colorScheme),
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -503,7 +547,35 @@ private struct InvestmentActionSheet: View {
     }
 }
 
+private struct InvestmentSheetStatusBanner: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let message: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(Color(red: 0.72, green: 0.16, blue: 0.20))
+                .padding(.top, 2)
+
+            Text(message)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color(red: 0.72, green: 0.16, blue: 0.20))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .background(
+            colorScheme == .dark
+                ? Color(red: 0.27, green: 0.14, blue: 0.16)
+                : Color(red: 1.0, green: 0.94, blue: 0.95)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+}
+
 private struct InvestmentHistoryScreen: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
 
     let sections: [InvestmentActivitySection]
@@ -567,13 +639,13 @@ private struct InvestmentHistoryScreen: View {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(FinancePalette.textPrimary)
                     .frame(width: 42, height: 42)
-                    .background(Color.white)
+                    .background(FinancePalette.cardBackground(for: colorScheme))
                     .clipShape(Circle())
                     .overlay(
                         Circle()
-                            .stroke(FinancePalette.icyBlue, lineWidth: 1)
+                            .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
                     )
-                    .shadow(color: FinancePalette.cardShadow.opacity(0.45), radius: 12, y: 8)
+                    .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.45), radius: 12, y: 8)
             }
             .buttonStyle(.plain)
 
@@ -661,7 +733,7 @@ private struct InvestmentHistoryScreen: View {
                                             endPoint: .trailing
                                         )
                                     } else {
-                                        Color.white
+                                        FinancePalette.cardBackground(for: colorScheme)
                                     }
                                 }
                             )
@@ -669,7 +741,7 @@ private struct InvestmentHistoryScreen: View {
                             .overlay(
                                 Capsule()
                                     .stroke(
-                                        selectedFilter == filter ? Color.clear : FinancePalette.icyBlue,
+                                        selectedFilter == filter ? Color.clear : FinancePalette.border(for: colorScheme),
                                         lineWidth: 1
                                     )
                             )
@@ -683,14 +755,18 @@ private struct InvestmentHistoryScreen: View {
 
     private var historyList: some View {
         VStack(alignment: .leading, spacing: 16) {
-            ForEach(filteredSections) { section in
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(section.title)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(FinancePalette.textSecondary)
+            if filteredSections.isEmpty {
+                EmptyInvestmentHistoryCard()
+            } else {
+                ForEach(filteredSections) { section in
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(section.title)
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(FinancePalette.textSecondary)
 
-                    ForEach(section.activities) { activity in
-                        InvestmentActivityRow(activity: activity)
+                        ForEach(section.activities) { activity in
+                            InvestmentActivityRow(activity: activity)
+                        }
                     }
                 }
             }
@@ -699,6 +775,7 @@ private struct InvestmentHistoryScreen: View {
 }
 
 private struct MinimalInvestmentMetricCard: View {
+    @Environment(\.colorScheme) private var colorScheme
     let title: String
     let value: String
     let accentColor: Color
@@ -720,19 +797,16 @@ private struct MinimalInvestmentMetricCard: View {
         .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.white, FinancePalette.mistBlue],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .fill(FinancePalette.elevatedBackground(for: colorScheme))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(accentColor.opacity(0.10), lineWidth: 1)
+                .stroke(
+                    colorScheme == .dark ? FinancePalette.border(for: colorScheme) : accentColor.opacity(0.10),
+                    lineWidth: 1
+                )
         )
-        .shadow(color: FinancePalette.cardShadow.opacity(0.28), radius: 10, y: 8)
+        .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.28), radius: 10, y: 8)
     }
 }
 
@@ -758,77 +832,8 @@ private enum InvestmentHistoryFilter: String, CaseIterable, Identifiable {
     }
 }
 
-private struct SalaryAllocationTile: View {
-    let item: SalaryAllocationItem
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top) {
-                Text("\(item.share)%")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundStyle(item.color)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(item.color.opacity(0.10))
-                    .clipShape(Capsule())
-
-                Spacer(minLength: 8)
-
-                SettingsIconBadge(icon: "circle.hexagongrid.fill", color: item.color)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(item.title)
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
-                    .foregroundStyle(FinancePalette.textPrimary)
-
-                Text(item.amount.currencyText)
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .foregroundStyle(FinancePalette.textPrimary)
-
-                Text(item.note)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(FinancePalette.textSecondary)
-                    .lineLimit(2)
-            }
-
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(FinancePalette.paleBlue)
-                    .frame(height: 8)
-
-                Capsule()
-                    .fill(
-                        LinearGradient(
-                            colors: [item.color.opacity(0.68), item.color],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(width: CGFloat(item.share) * 2.6, height: 8)
-            }
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, minHeight: 170, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.white, FinancePalette.mistBlue],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(FinancePalette.icyBlue.opacity(0.95), lineWidth: 1)
-        )
-        .shadow(color: FinancePalette.cardShadow.opacity(0.38), radius: 14, y: 10)
-    }
-}
-
 private struct InvestmentHoldingCard: View {
+    @Environment(\.colorScheme) private var colorScheme
     let holding: InvestmentHolding
 
     var body: some View {
@@ -895,19 +900,69 @@ private struct InvestmentHoldingCard: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.white, FinancePalette.mistBlue],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .fill(FinancePalette.elevatedBackground(for: colorScheme))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(FinancePalette.icyBlue.opacity(0.96), lineWidth: 1)
+                .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
         )
-        .shadow(color: FinancePalette.cardShadow.opacity(0.34), radius: 12, y: 8)
+        .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.34), radius: 12, y: 8)
+    }
+}
+
+private struct EmptyInvestmentPortfolioCard: View {
+    @Environment(\.colorScheme) private var colorScheme
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SettingsIconBadge(icon: "chart.line.uptrend.xyaxis.circle.fill", color: FinancePalette.royalBlue)
+
+            Text("No active investments yet")
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .foregroundStyle(FinancePalette.textPrimary)
+
+            Text("Use Add to track family-held money, SIP, gold, or FD without counting it as an expense.")
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .foregroundStyle(FinancePalette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(FinancePalette.elevatedBackground(for: colorScheme))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
+        )
+        .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.34), radius: 12, y: 8)
+    }
+}
+
+private struct EmptyInvestmentHistoryCard: View {
+    @Environment(\.colorScheme) private var colorScheme
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("No history yet")
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .foregroundStyle(FinancePalette.textPrimary)
+
+            Text("Investment adds and redeems will appear here once you start using this page.")
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .foregroundStyle(FinancePalette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(FinancePalette.elevatedBackground(for: colorScheme))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
+        )
+        .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.36), radius: 12, y: 8)
     }
 }
 
@@ -937,6 +992,7 @@ private struct PortfolioMetricTile: View {
 }
 
 private struct InvestmentActivityRow: View {
+    @Environment(\.colorScheme) private var colorScheme
     let activity: InvestmentActivity
 
     var body: some View {
@@ -978,12 +1034,12 @@ private struct InvestmentActivityRow: View {
         .padding(.vertical, 15)
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Color.white.opacity(0.98))
+                .fill(FinancePalette.elevatedBackground(for: colorScheme))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(FinancePalette.icyBlue.opacity(0.92), lineWidth: 1)
+                .stroke(FinancePalette.border(for: colorScheme), lineWidth: 1)
         )
-        .shadow(color: FinancePalette.cardShadow.opacity(0.36), radius: 12, y: 8)
+        .shadow(color: FinancePalette.shadow(for: colorScheme).opacity(0.36), radius: 12, y: 8)
     }
 }

@@ -43,7 +43,7 @@ private enum AuthField: Hashable {
 }
 
 struct AuthenticationFlowScreen: View {
-    @Binding var isAuthenticated: Bool
+    @EnvironmentObject private var authStore: AuthStore
 
     @State private var mode: AuthMode = .login
     @State private var fullName = ""
@@ -53,8 +53,16 @@ struct AuthenticationFlowScreen: View {
     @State private var confirmPassword = ""
     @State private var keepSignedIn = true
     @State private var acceptsPrivacy = true
+    @State private var hasAnimatedIn = false
     @Namespace private var selectorNamespace
     @FocusState private var focusedField: AuthField?
+
+    private var registerFieldTransition: AnyTransition {
+        .asymmetric(
+            insertion: .move(edge: .top).combined(with: .opacity),
+            removal: .opacity.combined(with: .scale(scale: 0.98, anchor: .top))
+        )
+    }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -70,12 +78,21 @@ struct AuthenticationFlowScreen: View {
             .padding(.bottom, 34)
         }
         .scrollBounceBehavior(.basedOnSize)
+        .onAppear {
+            authStore.clearMessages()
+            guard !hasAnimatedIn else { return }
+            hasAnimatedIn = true
+        }
+        .onChange(of: mode) { _, _ in
+            focusedField = nil
+            authStore.clearMessages()
+        }
     }
 
     private var authHero: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 12) {
-                Image("Gemini_Generated_Image_yzd5hgyzd5hgyzd5")
+                Image("ChatGPT Image Apr 10, 2026 at 11_08_54 AM")
                     .resizable()
                     .scaledToFill()
                     .frame(width: 56, height: 56)
@@ -86,6 +103,10 @@ struct AuthenticationFlowScreen: View {
                             .stroke(FinancePalette.icyBlue.opacity(0.85), lineWidth: 1)
                     )
                     .shadow(color: FinancePalette.royalBlue.opacity(0.18), radius: 12, y: 8)
+                    .scaleEffect(hasAnimatedIn ? 1 : 0.72)
+                    .rotationEffect(.degrees(hasAnimatedIn ? 0 : -8))
+                    .opacity(hasAnimatedIn ? 1 : 0)
+                    .animation(.spring(response: 0.72, dampingFraction: 0.82), value: hasAnimatedIn)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Finance Tracker")
@@ -102,14 +123,18 @@ struct AuthenticationFlowScreen: View {
                 Text(mode.title)
                     .font(.system(size: 30, weight: .bold, design: .rounded))
                     .foregroundStyle(FinancePalette.textPrimary)
+                    .contentTransition(.opacity)
 
                 Text(mode.subtitle)
                     .font(.system(size: 15, weight: .medium, design: .rounded))
                     .foregroundStyle(FinancePalette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
+                    .contentTransition(.opacity)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .authEntrance(isVisible: hasAnimatedIn, delay: 0.04, offset: 14, scale: 0.98)
+        .animation(.spring(response: 0.36, dampingFraction: 0.86), value: mode)
     }
 
     private var securityRow: some View {
@@ -119,6 +144,7 @@ struct AuthenticationFlowScreen: View {
             AuthFeaturePill(symbol: "checkmark.seal.fill", title: "Secure")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .authEntrance(isVisible: hasAnimatedIn, delay: 0.10, offset: 12, scale: 0.98)
     }
 
     private var modeSelector: some View {
@@ -160,6 +186,7 @@ struct AuthenticationFlowScreen: View {
                 .stroke(FinancePalette.icyBlue.opacity(0.95), lineWidth: 1)
         )
         .shadow(color: FinancePalette.cardShadow.opacity(0.28), radius: 14, y: 8)
+        .authEntrance(isVisible: hasAnimatedIn, delay: 0.14, offset: 12, scale: 0.98)
     }
 
     private var formCard: some View {
@@ -167,11 +194,19 @@ struct AuthenticationFlowScreen: View {
             Text(mode == .login ? "Access your account" : "Start your finance journey")
                 .font(.system(size: 22, weight: .bold, design: .rounded))
                 .foregroundStyle(FinancePalette.textPrimary)
+                .contentTransition(.opacity)
 
             Text(mode == .login ? "Use your account details to continue." : "Create a clean workspace for your salary, wallet, and investments.")
                 .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundStyle(FinancePalette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+                .contentTransition(.opacity)
+
+            if let errorMessage = authStore.errorMessage {
+                AuthStatusBanner(message: errorMessage, style: .error)
+            } else if let infoMessage = authStore.infoMessage {
+                AuthStatusBanner(message: infoMessage, style: .info)
+            }
 
             if mode == .register {
                 AuthInputField(
@@ -181,6 +216,8 @@ struct AuthenticationFlowScreen: View {
                     text: $fullName
                 )
                 .focused($focusedField, equals: .fullName)
+                .authEntrance(isVisible: hasAnimatedIn, delay: 0.20, offset: 8, scale: 0.99)
+                .transition(registerFieldTransition)
             }
 
             AuthInputField(
@@ -190,6 +227,7 @@ struct AuthenticationFlowScreen: View {
                 text: $email
             )
             .focused($focusedField, equals: .email)
+            .authEntrance(isVisible: hasAnimatedIn, delay: 0.23, offset: 8, scale: 0.99)
 
             if mode == .register {
                 AuthInputField(
@@ -199,6 +237,8 @@ struct AuthenticationFlowScreen: View {
                     text: $phone
                 )
                 .focused($focusedField, equals: .phone)
+                .authEntrance(isVisible: hasAnimatedIn, delay: 0.26, offset: 8, scale: 0.99)
+                .transition(registerFieldTransition)
             }
 
             AuthSecureInputField(
@@ -208,6 +248,7 @@ struct AuthenticationFlowScreen: View {
                 text: $password
             )
             .focused($focusedField, equals: .password)
+            .authEntrance(isVisible: hasAnimatedIn, delay: 0.29, offset: 8, scale: 0.99)
 
             if mode == .register {
                 AuthSecureInputField(
@@ -217,6 +258,8 @@ struct AuthenticationFlowScreen: View {
                     text: $confirmPassword
                 )
                 .focused($focusedField, equals: .confirmPassword)
+                .authEntrance(isVisible: hasAnimatedIn, delay: 0.32, offset: 8, scale: 0.99)
+                .transition(registerFieldTransition)
             }
 
             if mode == .login {
@@ -240,10 +283,14 @@ struct AuthenticationFlowScreen: View {
 
                     Spacer()
 
-                    Button("Forgot password?") { }
+                    Button("Forgot password?") {
+                        focusedField = nil
+                        authStore.sendPasswordReset(email: email)
+                    }
                         .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundStyle(FinancePalette.royalBlue)
                 }
+                .transition(registerFieldTransition)
             } else {
                 Button {
                     withAnimation(.smooth(duration: 0.25)) {
@@ -263,23 +310,49 @@ struct AuthenticationFlowScreen: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .transition(registerFieldTransition)
             }
 
             Button {
                 focusedField = nil
-                withAnimation(.smooth(duration: 0.35)) {
-                    isAuthenticated = true
+
+                if mode == .login {
+                    authStore.signIn(email: email, password: password)
+                } else {
+                    authStore.register(
+                        fullName: fullName,
+                        email: email,
+                        phoneNumber: phone,
+                        password: password,
+                        confirmPassword: confirmPassword,
+                        acceptedPrivacy: acceptsPrivacy
+                    )
                 }
             } label: {
-                HStack(spacing: 10) {
-                    Text(mode.buttonTitle)
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                ZStack {
+                    if authStore.isLoading {
+                        HStack(spacing: 10) {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                                .tint(.white)
 
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 14, weight: .bold))
+                            Text(mode == .login ? "Signing In..." : "Creating...")
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                        }
+                        .transition(.scale(scale: 0.94).combined(with: .opacity))
+                    } else {
+                        HStack(spacing: 10) {
+                            Text(mode.buttonTitle)
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 14, weight: .bold))
+                        }
+                        .transition(.scale(scale: 0.98).combined(with: .opacity))
+                    }
                 }
                 .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: authStore.isLoading ? 218 : .infinity)
                 .frame(height: 58)
                 .background(
                     LinearGradient(
@@ -288,16 +361,22 @@ struct AuthenticationFlowScreen: View {
                         endPoint: .trailing
                     )
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: authStore.isLoading ? 29 : 22, style: .continuous))
                 .shadow(color: FinancePalette.royalBlue.opacity(0.28), radius: 16, y: 10)
+                .animation(.spring(response: 0.36, dampingFraction: 0.84), value: authStore.isLoading)
             }
             .buttonStyle(.plain)
+            .disabled(authStore.isLoading)
+            .opacity(authStore.isLoading ? 0.86 : 1)
+            .frame(maxWidth: .infinity, alignment: .center)
             .padding(.top, 4)
+            .authEntrance(isVisible: hasAnimatedIn, delay: 0.36, offset: 8, scale: 0.99)
 
-            Text(mode == .login ? "UI is ready for real sign-in integration next." : "This account flow is ready for backend and Firebase connection next.")
+            Text(mode == .login ? "Email login is now connected to Firebase Auth." : "Registration saves your name for Home and Profile automatically.")
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .foregroundStyle(FinancePalette.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .center)
+                .contentTransition(.opacity)
         }
         .padding(22)
         .background(
@@ -309,6 +388,8 @@ struct AuthenticationFlowScreen: View {
                 .stroke(FinancePalette.icyBlue.opacity(0.95), lineWidth: 1)
         )
         .shadow(color: FinancePalette.cardShadow.opacity(0.32), radius: 20, y: 14)
+        .authEntrance(isVisible: hasAnimatedIn, delay: 0.18, offset: 14, scale: 0.985)
+        .animation(.spring(response: 0.40, dampingFraction: 0.88), value: mode)
     }
 
     private var bottomSwitchPrompt: some View {
@@ -327,6 +408,7 @@ struct AuthenticationFlowScreen: View {
             .foregroundStyle(FinancePalette.royalBlue)
         }
         .padding(.bottom, 8)
+        .authEntrance(isVisible: hasAnimatedIn, delay: 0.24, offset: 10, scale: 0.99)
     }
 }
 
@@ -353,6 +435,63 @@ private struct AuthFeaturePill: View {
                 .stroke(FinancePalette.icyBlue.opacity(0.92), lineWidth: 1)
         )
         .shadow(color: FinancePalette.cardShadow.opacity(0.20), radius: 8, y: 4)
+    }
+}
+
+private struct AuthStatusBanner: View {
+    enum Style {
+        case error
+        case info
+
+        var icon: String {
+            switch self {
+            case .error:
+                return "exclamationmark.circle.fill"
+            case .info:
+                return "checkmark.circle.fill"
+            }
+        }
+
+        var foreground: Color {
+            switch self {
+            case .error:
+                return Color(red: 0.72, green: 0.16, blue: 0.20)
+            case .info:
+                return FinancePalette.royalBlue
+            }
+        }
+
+        var background: Color {
+            switch self {
+            case .error:
+                return Color(red: 1.0, green: 0.94, blue: 0.95)
+            case .info:
+                return FinancePalette.paleBlue
+            }
+        }
+    }
+
+    let message: String
+    let style: Style
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: style.icon)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(style.foreground)
+                .padding(.top, 2)
+
+            Text(message)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(style.foreground)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .background(style.background)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
 
@@ -471,12 +610,25 @@ private struct AuthSecureInputField: View {
     }
 }
 
+#if DEBUG
 struct AuthenticationFlowScreen_Previews: PreviewProvider {
     static var previews: some View {
         ZStack {
             AppBackground()
-            AuthenticationFlowScreen(isAuthenticated: .constant(false))
+            AuthenticationFlowScreen()
         }
+        .environmentObject(AuthStore())
         .preferredColorScheme(.light)
+    }
+}
+#endif
+
+private extension View {
+    func authEntrance(isVisible: Bool, delay: Double, offset: CGFloat, scale: CGFloat) -> some View {
+        self
+            .opacity(isVisible ? 1 : 0)
+            .offset(y: isVisible ? 0 : offset)
+            .scaleEffect(isVisible ? 1 : scale)
+            .animation(.spring(response: 0.62, dampingFraction: 0.88).delay(delay), value: isVisible)
     }
 }
