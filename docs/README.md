@@ -9,6 +9,7 @@ This folder contains a simple static website for:
 
 - `index.html` - marketing / landing page
 - `support.html` - support page for App Store Connect
+- `privacy.html` - privacy policy page for App Store Connect
 - `delete-account.html` - account deletion page for App Store requirements
 - `styles.css` - shared styling
 - `assets/finance-tracker-logo.png` - website logo
@@ -19,6 +20,7 @@ For this repository, after enabling GitHub Pages, use:
 
 - Marketing URL: `https://nakhulkrishna.github.io/finance-tracker/`
 - Support URL: `https://nakhulkrishna.github.io/finance-tracker/support.html`
+- Privacy Policy URL: `https://nakhulkrishna.github.io/finance-tracker/privacy.html`
 - Delete Account URL: `https://nakhulkrishna.github.io/finance-tracker/delete-account.html`
 
 ## GitHub Pages Setup
@@ -51,3 +53,8 @@ Update the delete account page with your final:
 
 - support email for deletion requests
 - final deletion process text
+
+Update the privacy policy page with your final:
+
+- any additional legal language you want
+- future analytics or ad disclosures if added later
